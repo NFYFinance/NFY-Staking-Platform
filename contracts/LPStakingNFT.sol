@@ -3,7 +3,7 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./Ownable.sol";
 
-contract NFYStakingNFT is Ownable, ERC721 {
+contract LPStakingNFT is Ownable, ERC721 {
     using SafeMath for uint256;
 
     // Variable that will keep track of next NFT id
@@ -14,9 +14,9 @@ contract NFYStakingNFT is Ownable, ERC721 {
     // Event that will emit when a token has been minted
     event MintedToken(address _staker, uint256 _tokenId, uint256 _time);
 
-    constructor() Ownable() ERC721("NFY Staking NFT", "NFYNFT") public {}
+    constructor() Ownable() ERC721("NFY/ETH LP Staking NFT", "LPNFT") public {}
 
-    // Will mint NFY NFT when a user stakes
+    // Will mint LP NFT when a user stakes
     function mint(address _minter) public onlyOwner() {
 
         _safeMint(_minter, tokenID, '');
@@ -29,7 +29,7 @@ contract NFYStakingNFT is Ownable, ERC721 {
         tokenID = tokenID.add(1);
     }
 
-    function updateMetadata(uint256 _tokenID, string memory _metaData) public onlyOwner() {
+    function updateMetadata(uint256 _tokenID, string memory _metaData) public onlyOwner()  {
         _setTokenURI(_tokenID, _metaData);
     }
 
