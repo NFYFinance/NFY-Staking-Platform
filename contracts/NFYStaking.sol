@@ -37,7 +37,7 @@ contract NFYStaking is Ownable {
     }
 
     // Function that will check if a NFY stake NFT in in circulation
-    function checkIfNFTInCirculation(uint _tokenId) public view returns(uint _inCirculation) {
+    function checkIfNFTInCirculation(uint _tokenId) public view returns(bool _inCirculation) {
         return NFTDetails[_tokenId]._inCirculation;
     }
 
