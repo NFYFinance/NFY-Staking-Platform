@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.10;
-import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol";
-import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/math/SafeMath.sol";
-import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "./Ownable.sol";
 
 interface IStakingNFT {
     function nftTokenId(address _stakeholder) external view returns(uint id);
@@ -34,8 +34,6 @@ contract NFYStaking is Ownable {
     address taking;
 
     mapping(uint => NFT) public NFTDetails;
-    
-  
 
     // Constructor will set the address of NFY token and address of NFY staking NFT
     constructor(address _NFYToken, address _StakingNFT, address _taking, address _rewardPool) Ownable() public {
@@ -65,13 +63,11 @@ contract NFYStaking is Ownable {
         require(NFYToken.balanceOf(msg.sender) >= _amount, "Do not have enough NFY to stake");
         if(StakingNFT.nftTokenId(msg.sender) == 0){
              addStakeholder(msg.sender);
-         }
+        }
         NFYToken.transferFrom(msg.sender, address(this), _amount);
         NFTDetails[StakingNFT.nftTokenId(msg.sender)]._NFYDeposited = NFTDetails[StakingNFT.nftTokenId(msg.sender)]._NFYDeposited.add(_amount);
         emit StakeCompleted(msg.sender, _amount, StakingNFT.nftTokenId(msg.sender), now);
     }
-    
-    
 
     function addStakeholder(address _stakeholder) private {
       taking.call(abi.encodeWithSignature("mint(address)", _stakeholder));
@@ -85,6 +81,9 @@ contract NFYStaking is Ownable {
 
     // Function that lets user unstake NFY in system. 5% fee that gets redistributed back to reward pool
     function unstakeNFY(uint _tokenId) public {
+        // Require that user is owner of token id
+        require(StakingNFT.nftTokenId(_msgSender()) == _tokenId, "User is not owner of specified token id");
+
         require(NFTDetails[StakingNFT.nftTokenId(msg.sender)]._addressOfMinter == msg.sender, "Can not unstake a token you do not have");
         taking.call(abi.encodeWithSignature("burn(uint256)", _tokenId));
         uint amountStaked = NFTDetails[_tokenId]._NFYDeposited;

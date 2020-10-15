@@ -15,6 +15,11 @@ contract LPStaking is Ownable {
         bool _inCirculation;
     }
 
+    modifier onlyTradingPlatform() {
+        require(msg.sender == tradingPlatform, "Not trading platform");
+        _;
+    }
+
     event StakeCompleted(address _staker, uint _amount, uint _tokenId, uint _time);
     event WithdrawCompleted(address _staker, uint _amount, uint _tokenId, uint _time);
 
@@ -22,6 +27,7 @@ contract LPStaking is Ownable {
     IERC20 public LPToken;
     IERC721 public StakingNFT;
     address public rewardPool;
+    address public tradingPlatform;
 
     mapping(uint => NFT) NFTDetails;
 
@@ -46,6 +52,18 @@ contract LPStaking is Ownable {
         return (NFTDetails[_tokenId]._NFYDeposited, NFTDetails[_tokenId]._currentOwner, NFTDetails[_tokenId]._NFYDeposited, NFTDetails[_tokenId]._inCirculation);
     }
 
+    function getNFTValue(uint _tokenId) public view returns(uint _NFYDeposited) {
+        return NFTDetails[_tokenId]._NFYDeposited;
+    }
+
+    function incrementNFTValue (uint _tokenId) public onlyTradingPlatform() {
+        NFTDetails[_tokenId]._NFYDeposited =  NFTDetails[_tokenId]._NFYDeposited.add(_amount);
+    }
+
+    function decrementNFTValue (uint _tokenId, uint _amount) public onlyTradingPlatform() {
+        NFTDetails[_tokenId]._NFYDeposited =  NFTDetails[_tokenId]._NFYDeposited.sub(_amount);
+    }
+
     // Function that lets user stake NFY
     // Once a user stakes their LP token they can not be unstaked, they can trade the rights to the stake
     // on the trading platform once released
@@ -64,6 +82,10 @@ contract LPStaking is Ownable {
         emit StakeCompleted(msg.sender, _amount, currentTokenId, now);
 
         currentTokenId = currentTokenId.add(1);
+    }
+
+    function setTradingPlatform(address _tradingPlatform) public onlyOwner() {
+        tradingPlatform = _tradingPlatform;
     }
 
 
