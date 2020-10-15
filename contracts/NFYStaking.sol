@@ -23,11 +23,8 @@ contract NFYStaking is Ownable {
 
     event StakeCompleted(address _staker, uint _amount, uint _tokenId, uint _time);
     event WithdrawCompleted(address _staker, uint _amount, uint _tokenId, uint _time);
-    // Event that will emit when a token has been minted
     event MintedToken(address _staker, uint256 _tokenId, uint256 _time);
 
-
-    // uint tokenID;
     IERC20 public NFYToken;
     IStakingNFT public StakingNFT;
     address public rewardPool;
@@ -101,6 +98,16 @@ contract NFYStaking is Ownable {
 
         emit WithdrawCompleted(msg.sender, userReceives, _tokenId, now);
 
+    }
+
+    // Will increment value of staking NFT when trade occurs
+    function incrementNFTValue (uint _tokenId) public onlyPlatform() {
+        NFTDetails[_tokenId]._NFYDeposited =  NFTDetails[_tokenId]._NFYDeposited.add(_amount);
+    }
+
+    // Will decrement value of staking NFT when trade occurs
+    function decrementNFTValue (uint _tokenId, uint _amount) public onlyPlatform() {
+        NFTDetails[_tokenId]._NFYDeposited =  NFTDetails[_tokenId]._NFYDeposited.sub(_amount);
     }
 
 }
