@@ -32,7 +32,7 @@ contract LPStaking is Ownable {
     mapping(uint => NFT) NFTDetails;
 
     // Constructor will set the address of NFY token and address of NFY staking NFT
-    constructor(address _LPToken, address _StakingNFT) Ownable() {
+    constructor(address _LPToken, address _StakingNFT) Ownable() public {
         LPToken = IERC20(_LPToken);
         StakingNFT = IERC721(_StakingNFT);
     }
@@ -47,16 +47,16 @@ contract LPStaking is Ownable {
         return NFTDetails[_tokenId]._inCirculation;
     }
 
-    // Function that will get the
+/*    // Function that will get the
     function getNFTDetails(uint _tokenId) public view returns(address _addressOfMinter, address _currentOwner, uint _NFYDeposited, bool _inCirculation){
         return (NFTDetails[_tokenId]._NFYDeposited, NFTDetails[_tokenId]._currentOwner, NFTDetails[_tokenId]._NFYDeposited, NFTDetails[_tokenId]._inCirculation);
-    }
+    }*/
 
     function getNFTValue(uint _tokenId) public view returns(uint _NFYDeposited) {
         return NFTDetails[_tokenId]._NFYDeposited;
     }
 
-    function incrementNFTValue (uint _tokenId) public onlyTradingPlatform() {
+    function incrementNFTValue (uint _tokenId, uint _amount) public onlyTradingPlatform() {
         NFTDetails[_tokenId]._NFYDeposited =  NFTDetails[_tokenId]._NFYDeposited.add(_amount);
     }
 
@@ -64,11 +64,11 @@ contract LPStaking is Ownable {
         NFTDetails[_tokenId]._NFYDeposited =  NFTDetails[_tokenId]._NFYDeposited.sub(_amount);
     }
 
-    // Function that lets user stake NFY
+/*    // Function that lets user stake NFY
     // Once a user stakes their LP token they can not be unstaked, they can trade the rights to the stake
     // on the trading platform once released
     function stakeLP(uint _amount) public {
-        require(NFYToken.balanceOf((msg.sender) >= _amount), "Do not have enough NFY to stake");
+        require(LPToken.balanceOf((_msgSender()) >= _amount), "Do not have enough LP to stake");
 
         StakingNFT.call(abi.encodeWithSignature("mint(address)", msg.sender));
 
@@ -77,12 +77,12 @@ contract LPStaking is Ownable {
         NFTDetails[currentTokenId]._NFYDeposited = _amount;
         NFTDetails[currentTokenId]._inCirculation = true;
 
-        NFYToken.transferFrom(msg.sender, address(this), _amount);
+        LPToken.transferFrom(msg.sender, address(this), _amount);
 
         emit StakeCompleted(msg.sender, _amount, currentTokenId, now);
 
         currentTokenId = currentTokenId.add(1);
-    }
+    }*/
 
     function setTradingPlatform(address _tradingPlatform) public onlyOwner() {
         tradingPlatform = _tradingPlatform;

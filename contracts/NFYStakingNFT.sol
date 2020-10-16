@@ -11,8 +11,6 @@ contract NFYStakingNFT is Ownable, ERC721 {
     // Variable that will keep track of next NFT id
     uint256 public tokenID;
 
-    mapping(address => bool) platformAddress;
-
     mapping(address => uint) public nftId;
 
     // Event that will emit when a token has been minted

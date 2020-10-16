@@ -1,7 +1,7 @@
 pragma solidity ^0.6.10;
 import "@openzeppelin/contracts/GSN/Context.sol";
 
-contract Ownable {
+contract Ownable is Context {
 
     address payable public owner;
 
@@ -14,7 +14,7 @@ contract Ownable {
     }
 
     modifier onlyPlatform() {
-        require(platformAddress(_msgSender()) == true, "Only Platform");
+        require(platformAddress[_msgSender()] == true, "Only Platform");
         _;
     }
 

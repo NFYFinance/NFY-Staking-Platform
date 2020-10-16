@@ -1,16 +1,21 @@
 const NFYStakingNFT = artifacts.require("NFYStakingNFT");
 const NFYStaking = artifacts.require("NFYStaking");
+const Token = artifacts.require("Demo");
 
 module.exports = async function (deployer, networks, accounts) {
 
     // Owner address
-    const owner = "0x5530fb19c22B1B410708b0A9fD230c714cbA12Ed";
+    const owner = accounts[1];
 
     // Address of NFY token
-    const NFYAddress = "0x1cbb83ebcd552d5ebf8131ef8c9cd9d9bab342bc";
+    //const NFYAddress = "0x1cbb83ebcd552d5ebf8131ef8c9cd9d9bab342bc";
 
     // Address of reward pool
-    const rewardPool = "";
+    const rewardPool = accounts[2];
+
+    await deployer.deploy(Token);
+
+    const token = await Token.deployed();
 
     // Token deployment
     await deployer.deploy(NFYStakingNFT);
@@ -18,9 +23,11 @@ module.exports = async function (deployer, networks, accounts) {
     const nfyStakingNFT = await NFYStakingNFT.deployed();
 
     // Funding deployment
-    await deployer.deploy(NFYStaking, NFYAddress, nfyStakingNFT.address, nfyStakingNFT.address, rewardPool);
+    await deployer.deploy(NFYStaking, token.address, nfyStakingNFT.address, nfyStakingNFT.address, rewardPool);
 
     const nfyStaking = await NFYStaking.deployed()
+
+    await nfyStakingNFT.addPlatformAddress(nfyStaking.address);
 
     // Transfer ownership to secured secured account
     await nfyStakingNFT.transferOwnership(owner);

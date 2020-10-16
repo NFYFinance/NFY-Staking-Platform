@@ -28,7 +28,7 @@ contract NFYStaking is Ownable {
     IERC20 public NFYToken;
     IStakingNFT public StakingNFT;
     address public rewardPool;
-    address taking;
+    address public taking;
 
     mapping(uint => NFT) public NFTDetails;
 
@@ -50,14 +50,16 @@ contract NFYStaking is Ownable {
         return NFTDetails[_tokenId]._inCirculation;
     }
 
-    // Function that will get the
+/*    // Function that will get the
     function getNFTDetails(uint _tokenId) public view returns(address _addressOfMinter, address _currentOwner, uint _NFYDeposited, bool _inCirculation){
         return (NFTDetails[_tokenId]._addressOfMinter, NFTDetails[_tokenId]._currentOwner, NFTDetails[_tokenId]._NFYDeposited, NFTDetails[_tokenId]._inCirculation);
-    }
+    }*/
 
     // Function that lets user stake NFY
     function stakeNFY(uint _amount) public {
+        require(_amount > 0, "Can not stake 0 NFY");
         require(NFYToken.balanceOf(msg.sender) >= _amount, "Do not have enough NFY to stake");
+
         if(StakingNFT.nftTokenId(msg.sender) == 0){
              addStakeholder(msg.sender);
         }
@@ -71,9 +73,7 @@ contract NFYStaking is Ownable {
         NFTDetails[StakingNFT.nftTokenId(msg.sender)]._addressOfMinter = _stakeholder;
         NFTDetails[StakingNFT.nftTokenId(msg.sender)]._currentOwner = _stakeholder;
         NFTDetails[StakingNFT.nftTokenId(msg.sender)]._inCirculation = true;
-        
-        //Emit event that mint has been processed
-        emit MintedToken(_stakeholder, StakingNFT.nftTokenId(msg.sender), now);
+
     }
 
     // Function that lets user unstake NFY in system. 5% fee that gets redistributed back to reward pool
@@ -82,10 +82,11 @@ contract NFYStaking is Ownable {
         require(StakingNFT.nftTokenId(_msgSender()) == _tokenId, "User is not owner of specified token id");
 
         require(NFTDetails[StakingNFT.nftTokenId(msg.sender)]._addressOfMinter == msg.sender, "Can not unstake a token you do not have");
-        taking.call(abi.encodeWithSignature("burn(uint256)", _tokenId));
         uint amountStaked = NFTDetails[_tokenId]._NFYDeposited;
         uint userReceives = amountStaked.div(100).mul(95);
         uint fee = amountStaked.div(100).mul(5);
+
+        taking.call(abi.encodeWithSignature("burn(uint256)", _tokenId));
 
         NFTDetails[_tokenId]._currentOwner = 0x000000000000000000000000000000000000dEaD;
         NFTDetails[_tokenId]._previousOwner = msg.sender;
@@ -101,7 +102,7 @@ contract NFYStaking is Ownable {
     }
 
     // Will increment value of staking NFT when trade occurs
-    function incrementNFTValue (uint _tokenId) public onlyPlatform() {
+    function incrementNFTValue (uint _tokenId, uint _amount) public onlyPlatform() {
         NFTDetails[_tokenId]._NFYDeposited =  NFTDetails[_tokenId]._NFYDeposited.add(_amount);
     }
 
