@@ -10,6 +10,7 @@ contract("NFYStaking", async (accounts) => {
     let rewardPool;
     let user;
     let user2;
+    let user3;
     let token;
     let nfyStakingNFT;
     let nfyStaking;
@@ -26,6 +27,8 @@ contract("NFYStaking", async (accounts) => {
         user = accounts[3];
 
         user2 = accounts[4];
+
+        user3 = accounts[5];
 
         initialBalanceBefore = 1000
         allowanceBefore = 2000;
@@ -57,6 +60,7 @@ contract("NFYStaking", async (accounts) => {
 
         await token.faucet(user, initialBalance);
         await token.faucet(user2, initialBalance);
+        await token.faucet(user3, initialBalance);
      });
 
      describe("# constructor()", () => {
@@ -108,7 +112,7 @@ contract("NFYStaking", async (accounts) => {
 
         it('should let a user stake if funds approved', async () => {
             await token.approve(nfyStaking.address, allowance, {from: user});
-            await truffleAssert.passes(nfyStaking.stakeNFY(5, {from: user}));
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
         });
 
         it('should not allow a user to stake 0 tokens', async () => {
@@ -208,7 +212,7 @@ contract("NFYStaking", async (accounts) => {
             assert.strictEqual((stakeAmount * 2).toString(), secondStake);
         });
 
-        it('should mint a new NFT if user sends their NFT to another address', async () => {
+        it('should mint a new NFT if user stakes and sent their NFT to another address', async () => {
             await token.approve(nfyStaking.address, allowance, {from: user});
             const transaction = await nfyStaking.stakeNFY(stakeAmount, {from: user});
             const tokenId = transaction.logs[1].args._tokenId.toNumber();
@@ -462,7 +466,50 @@ contract("NFYStaking", async (accounts) => {
             await truffleAssert.reverts(nfyStaking.unstakeNFY(tokenId, {from: user}));
 
             await truffleAssert.passes(nfyStaking.unstakeNFY(tokenId, {from: user2}));
+        });
 
+        it('should let owner unstake if the NFT is sent multiple times', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            const stake = await nfyStaking.stakeNFY(stakeAmount, {from: user});
+            const tokenId = stake.logs[1].args._tokenId.toNumber();
+            const amountStaked = BigInt(stake.logs[1].args._totalStaked);
+
+            assert.strictEqual(2, stake.logs.length);
+
+            await nfyStakingNFT.transferFrom(user, user2, tokenId, {from: user});
+            console.log(await nfyStakingNFT.ownerOf(tokenId));
+
+            await nfyStakingNFT.transferFrom(user2, user3, tokenId, {from: user2});
+            console.log(await nfyStakingNFT.ownerOf(tokenId));
+
+            const balanceBefore1 = await token.balanceOf(user);
+            console.log(BigInt(balanceBefore1));
+
+            const balanceBefore2 = await token.balanceOf(user2);
+            console.log(BigInt(balanceBefore2));
+
+            const balanceBefore3 = await token.balanceOf(user3);
+            console.log(BigInt(balanceBefore3));
+
+            await truffleAssert.reverts(nfyStaking.unstakeNFY(tokenId, {from: user}));
+            await truffleAssert.reverts(nfyStaking.unstakeNFY(tokenId, {from: user2}));
+            const unstake = await(nfyStaking.unstakeNFY(tokenId, {from: user3}));
+            assert.strictEqual(1, unstake.logs.length);
+            console.log(BigInt(unstake.logs[0].args._amount));
+
+            const balanceAfter1 = await token.balanceOf(user);
+            const balanceAfter2 = await token.balanceOf(user2);
+            const balanceAfter3 = await token.balanceOf(user3);
+
+            console.log(BigInt(balanceAfter1));
+            console.log(BigInt(balanceAfter2));
+            console.log(BigInt(balanceAfter3));
+
+            console.log(BigInt(balanceBefore3) + (BigInt(amountStaked) / BigInt(100) * BigInt(95)));
+
+            assert.strictEqual(BigInt(balanceBefore1), (BigInt(balanceAfter1)));
+            assert.strictEqual(BigInt(balanceBefore2), (BigInt(balanceAfter2)));
+            assert.strictEqual(BigInt(balanceBefore3) + (BigInt(amountStaked) / BigInt(100) * BigInt(95)), BigInt(balanceAfter3));
         });
 
      });

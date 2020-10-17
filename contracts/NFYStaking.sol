@@ -17,8 +17,6 @@ contract NFYStaking is Ownable {
 
     struct NFT {
         address _addressOfMinter;
-        //address _currentOwner;
-        //address _previousOwner;
         uint _NFYDeposited;
         bool _inCirculation;
     }
@@ -51,11 +49,6 @@ contract NFYStaking is Ownable {
     function checkIfNFTInCirculation(uint _tokenId) public view returns(bool _inCirculation) {
         return NFTDetails[_tokenId]._inCirculation;
     }
-
-/*    // Function that will get the
-    function getNFTDetails(uint _tokenId) public view returns(address _addressOfMinter, address _currentOwner, uint _NFYDeposited, bool _inCirculation){
-        return (NFTDetails[_tokenId]._addressOfMinter, NFTDetails[_tokenId]._currentOwner, NFTDetails[_tokenId]._NFYDeposited, NFTDetails[_tokenId]._inCirculation);
-    }*/
 
     // Function that lets user stake NFY
     function stakeNFY(uint _amount) public {
