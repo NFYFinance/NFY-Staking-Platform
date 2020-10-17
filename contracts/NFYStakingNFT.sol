@@ -15,6 +15,7 @@ contract NFYStakingNFT is Ownable, ERC721 {
 
     // Event that will emit when a token has been minted
     event MintedToken(address _staker, uint256 _tokenId, uint256 _time);
+    event RevertCompleted(address _stakeholder, uint256 _tokenId, uint256 _revertNum, uint256 _time);
 
     constructor() Ownable() ERC721("NFY Staking NFT", "NFYNFT") public {}
 
@@ -28,10 +29,13 @@ contract NFYStakingNFT is Ownable, ERC721 {
         emit MintedToken(_minter, tokenID, now);
     }
     
-    function revertNftTokenId(address _stakeholder, uint _tokenId) external {
+    function revertNftTokenId(address _stakeholder, uint _tokenId) external onlyPlatform() {
+        require(ownerOf(_tokenId) == _stakeholder, "not owner of token");
         //require(_msgSender() == _stakeholder, "User is not passed in address");
-        require(nftId[_stakeholder] == _tokenId, "Can not revert a token you do not have to zero");
+        //require(nftId[_stakeholder] == _tokenId, "Can not revert a token you do not have to zero");
         nftId[_stakeholder] = 0;
+
+        emit RevertCompleted(_stakeholder, _tokenId, nftId[_stakeholder], now);
     }
     
     function nftTokenId(address _stakeholder) external view returns(uint id){

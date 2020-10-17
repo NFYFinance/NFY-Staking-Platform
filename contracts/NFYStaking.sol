@@ -8,6 +8,8 @@ import "./Ownable.sol";
 interface IStakingNFT {
     function nftTokenId(address _stakeholder) external view returns(uint id);
     function revertNftTokenId(address _stakeholder, uint _tokenId) external;
+    function ownerOf(uint256 tokenId) external view returns (address owner);
+    function balanceOf(address owner) external view returns (uint256 balance);
 }
 
 contract NFYStaking is Ownable {
@@ -15,13 +17,13 @@ contract NFYStaking is Ownable {
 
     struct NFT {
         address _addressOfMinter;
-        address _currentOwner;
-        address _previousOwner;
+        //address _currentOwner;
+        //address _previousOwner;
         uint _NFYDeposited;
         bool _inCirculation;
     }
 
-    event StakeCompleted(address _staker, uint _amount, uint _tokenId, uint _time);
+    event StakeCompleted(address _staker, uint _amount, uint _tokenId, uint _totalStaked, uint _time);
     event WithdrawCompleted(address _staker, uint _amount, uint _tokenId, uint _time);
     event MintedToken(address _staker, uint256 _tokenId, uint256 _time);
 
@@ -60,18 +62,19 @@ contract NFYStaking is Ownable {
         require(_amount > 0, "Can not stake 0 NFY");
         require(NFYToken.balanceOf(msg.sender) >= _amount, "Do not have enough NFY to stake");
 
-        if(StakingNFT.nftTokenId(msg.sender) == 0){
+        if(StakingNFT.nftTokenId(_msgSender()) == 0 || StakingNFT.balanceOf(_msgSender()) == 0 || StakingNFT.ownerOf(StakingNFT.nftTokenId(_msgSender())) != _msgSender() ){
              addStakeholder(msg.sender);
         }
+
         NFYToken.transferFrom(msg.sender, address(this), _amount);
         NFTDetails[StakingNFT.nftTokenId(msg.sender)]._NFYDeposited = NFTDetails[StakingNFT.nftTokenId(msg.sender)]._NFYDeposited.add(_amount);
-        emit StakeCompleted(msg.sender, _amount, StakingNFT.nftTokenId(msg.sender), now);
+        emit StakeCompleted(msg.sender, _amount, StakingNFT.nftTokenId(msg.sender), NFTDetails[StakingNFT.nftTokenId(msg.sender)]._NFYDeposited, now);
     }
 
     function addStakeholder(address _stakeholder) private {
       taking.call(abi.encodeWithSignature("mint(address)", _stakeholder));
         NFTDetails[StakingNFT.nftTokenId(msg.sender)]._addressOfMinter = _stakeholder;
-        NFTDetails[StakingNFT.nftTokenId(msg.sender)]._currentOwner = _stakeholder;
+        //NFTDetails[StakingNFT.nftTokenId(msg.sender)]._currentOwner = _stakeholder;
         NFTDetails[StakingNFT.nftTokenId(msg.sender)]._inCirculation = true;
 
     }
@@ -79,26 +82,27 @@ contract NFYStaking is Ownable {
     // Function that lets user unstake NFY in system. 5% fee that gets redistributed back to reward pool
     function unstakeNFY(uint _tokenId) public {
         // Require that user is owner of token id
-        require(StakingNFT.nftTokenId(_msgSender()) == _tokenId, "User is not owner of specified token id");
+        require(StakingNFT.ownerOf(_tokenId) == _msgSender(), "User is not owner of token");
+        //require(StakingNFT.nftTokenId(_msgSender()) == _tokenId, "User is not owner of specified token id");
+        require(NFTDetails[_tokenId]._inCirculation == true, "Stake has already been withdrawn");
+        //require(NFTDetails[StakingNFT.nftTokenId(msg.sender)]._addressOfMinter == msg.sender, "Can not unstake a token you do not have");
 
-        require(NFTDetails[StakingNFT.nftTokenId(msg.sender)]._addressOfMinter == msg.sender, "Can not unstake a token you do not have");
-        uint amountStaked = NFTDetails[_tokenId]._NFYDeposited;
+        uint amountStaked = getNFTBalance(_tokenId);
         uint userReceives = amountStaked.div(100).mul(95);
         uint fee = amountStaked.div(100).mul(5);
 
-        taking.call(abi.encodeWithSignature("burn(uint256)", _tokenId));
-
-        NFTDetails[_tokenId]._currentOwner = 0x000000000000000000000000000000000000dEaD;
-        NFTDetails[_tokenId]._previousOwner = msg.sender;
+        //NFTDetails[_tokenId]._currentOwner = 0x000000000000000000000000000000000000dEaD;
+        //NFTDetails[_tokenId]._previousOwner = msg.sender;
         NFTDetails[_tokenId]._NFYDeposited = 0;
         NFTDetails[_tokenId]._inCirculation = false;
         StakingNFT.revertNftTokenId(msg.sender, _tokenId);
 
-        NFYToken.transfer(msg.sender, userReceives);
+        taking.call(abi.encodeWithSignature("burn(uint256)", _tokenId));
+
+        NFYToken.transfer(_msgSender(), userReceives);
         NFYToken.transfer(rewardPool, fee);
 
-        emit WithdrawCompleted(msg.sender, userReceives, _tokenId, now);
-
+        emit WithdrawCompleted(_msgSender(), userReceives, _tokenId, now);
     }
 
     // Will increment value of staking NFT when trade occurs
