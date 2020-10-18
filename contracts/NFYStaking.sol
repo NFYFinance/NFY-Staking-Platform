@@ -19,6 +19,7 @@ contract NFYStaking is Ownable {
         address _addressOfMinter;
         uint _NFYDeposited;
         bool _inCirculation;
+        uint _pendingRewards;
     }
 
     event StakeCompleted(address _staker, uint _amount, uint _tokenId, uint _totalStaked, uint _time);
@@ -29,6 +30,9 @@ contract NFYStaking is Ownable {
     IStakingNFT public StakingNFT;
     address public rewardPool;
     address public taking;
+    uint public rewardPerBlock;
+    uint public accNfyPerShare;
+    uint public lastRewardBlock;
 
     mapping(uint => NFT) public NFTDetails;
 
@@ -38,6 +42,7 @@ contract NFYStaking is Ownable {
         StakingNFT = IStakingNFT(_StakingNFT);
         taking = _taking;
         rewardPool = _rewardPool;
+        lastRewardBlock = block.number;
     }
 
     // Function that will get balance of a NFY balance of a certain stake
@@ -48,6 +53,44 @@ contract NFYStaking is Ownable {
     // Function that will check if a NFY stake NFT in in circulation
     function checkIfNFTInCirculation(uint _tokenId) public view returns(bool _inCirculation) {
         return NFTDetails[_tokenId]._inCirculation;
+    }
+
+    // Function that returns NFT's pending rewards
+    function pendingRewards(uint _NFT) public view returns(uint) {
+        NFT storage nft = NFTDetails[_NFT];
+
+        uint256 tokensInPool = NFYToken.balanceOf(address(this));
+        uint256 _accNfyPerShare = accNfyPerShare;
+
+        if (block.number > lastRewardBlock && tokensInPool != 0) {
+            uint256 blocksToReward = block.number.sub(lastRewardBlock);
+            uint256 nfyReward = blocksToReward.mul(rewardPerBlock);
+            _accNfyPerShare = _accNfyPerShare.add(nfyReward.mul(1e12).div(tokensInPool));
+        }
+
+        return nft._NFYDeposited.mul(accNfyPerShare).div(1e12).sub(nft._pendingRewards);
+    }
+
+    // Function that updates NFY pool
+    function updatePool() public {
+        if (block.number <= lastRewardBlock) {
+            return;
+        }
+
+        uint256 tokensInPool = NFYToken.balanceOf(address(this));
+        if (tokensInPool == 0) {
+            lastRewardBlock = block.number;
+            return;
+        }
+
+        uint256 blocksToReward = block.number.sub(lastRewardBlock);
+        uint256 nfyReward = blocksToReward.mul(rewardPerBlock);
+
+        //Approve nfyReward here
+        NFYToken.transferFrom(rewardPool, address(this), nfyReward);
+
+        accNfyPerShare = accNfyPerShare.add(nfyReward.mul(1e12).div(tokensInPool));
+        lastRewardBlock = block.number;
     }
 
     // Function that lets user stake NFY
@@ -69,7 +112,6 @@ contract NFYStaking is Ownable {
         NFTDetails[StakingNFT.nftTokenId(msg.sender)]._addressOfMinter = _stakeholder;
         //NFTDetails[StakingNFT.nftTokenId(msg.sender)]._currentOwner = _stakeholder;
         NFTDetails[StakingNFT.nftTokenId(msg.sender)]._inCirculation = true;
-
     }
 
     // Function that lets user unstake NFY in system. 5% fee that gets redistributed back to reward pool
@@ -99,12 +141,12 @@ contract NFYStaking is Ownable {
     }
 
     // Will increment value of staking NFT when trade occurs
-    function incrementNFTValue (uint _tokenId, uint _amount) public onlyPlatform() {
+    function incrementNFTValue (uint _tokenId, uint _amount) external onlyPlatform() {
         NFTDetails[_tokenId]._NFYDeposited =  NFTDetails[_tokenId]._NFYDeposited.add(_amount);
     }
 
     // Will decrement value of staking NFT when trade occurs
-    function decrementNFTValue (uint _tokenId, uint _amount) public onlyPlatform() {
+    function decrementNFTValue (uint _tokenId, uint _amount) external onlyPlatform() {
         NFTDetails[_tokenId]._NFYDeposited =  NFTDetails[_tokenId]._NFYDeposited.sub(_amount);
     }
 
