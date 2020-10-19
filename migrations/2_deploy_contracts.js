@@ -23,7 +23,7 @@ module.exports = async function (deployer, networks, accounts) {
     const nfyStakingNFT = await NFYStakingNFT.deployed();
 
     // Funding deployment
-    await deployer.deploy(NFYStaking, token.address, nfyStakingNFT.address, nfyStakingNFT.address, rewardPool);
+    await deployer.deploy(NFYStaking, token.address, nfyStakingNFT.address, nfyStakingNFT.address, rewardPool, 0);
 
     const nfyStaking = await NFYStaking.deployed()
 

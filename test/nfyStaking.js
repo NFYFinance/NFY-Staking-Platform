@@ -49,7 +49,7 @@ contract("NFYStaking", async (accounts) => {
         nfyStakingNFT = await NFYStakingNFT.new();
 
         // Funding deployment
-        nfyStaking = await NFYStaking.new(token.address, nfyStakingNFT.address, nfyStakingNFT.address, rewardPool);
+        nfyStaking = await NFYStaking.new(token.address, nfyStakingNFT.address, nfyStakingNFT.address, rewardPool, 0);
 
         // Add NFY Staking contract as a platform address
         await nfyStakingNFT.addPlatformAddress(nfyStaking.address);
