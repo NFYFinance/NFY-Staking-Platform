@@ -11,6 +11,7 @@ interface IStakingNFT {
     function revertNftTokenId(address _stakeholder, uint _tokenId) external;
     function ownerOf(uint256 tokenId) external view returns (address owner);
     function balanceOf(address owner) external view returns (uint256 balance);
+    function tokenOfOwnerByIndex(address owner, uint256 index) public view override returns (uint256);
 }
 
 contract NFYStaking is Ownable {
@@ -21,18 +22,19 @@ contract NFYStaking is Ownable {
         address _addressOfMinter;
         uint _NFYDeposited;
         bool _inCirculation;
-        uint _pendingRewards;
+        uint _rewardDebt;
     }
 
     event StakeCompleted(address _staker, uint _amount, uint _tokenId, uint _totalStaked, uint _time);
     event WithdrawCompleted(address _staker, uint _amount, uint _tokenId, uint _time);
+    event RewardsClaimed(address _staker, uint _rewardsClaimed, uint _tokenId, uint _time);
+    event RewardsCompounded(address _staker, uint _rewardsCompounded, uint _tokenId, uint _totalStaked, uint _time);
     event MintedToken(address _staker, uint256 _tokenId, uint256 _time);
 
     IERC20 public NFYToken;
     IStakingNFT public StakingNFT;
     address public rewardPool;
-    address public taking;
-    uint public rewardPerBlock;
+    address public staking;
     uint public dailyReward;
     uint public accNfyPerShare;
     uint public lastRewardBlock;
@@ -40,14 +42,13 @@ contract NFYStaking is Ownable {
     mapping(uint => NFT) public NFTDetails;
 
     // Constructor will set the address of NFY token and address of NFY staking NFT
-    constructor(address _NFYToken, address _StakingNFT, address _taking, address _rewardPool, uint _dailyReward) Ownable() public {
+    constructor(address _NFYToken, address _StakingNFT, address _staking, address _rewardPool, uint _dailyReward) Ownable() public {
         NFYToken = IERC20(_NFYToken);
         StakingNFT = IStakingNFT(_StakingNFT);
-        taking = _taking;
+        staking = _staking;
         rewardPool = _rewardPool;
         lastRewardBlock = block.number;
         setDailyReward(_dailyReward);
-        rewardPerBlock = getRewardPerBlock();
         accNfyPerShare = 0;
     }
 
@@ -56,6 +57,7 @@ contract NFYStaking is Ownable {
         return NFYToken.balanceOf(rewardPool) / 6500 / dailyReward;
     }
 
+    // % of reward pool to be distributed each day. 1000 == 0.1%
     function setDailyReward(uint _dailyReward) public onlyOwner {
         dailyReward = _dailyReward;
     }
@@ -79,11 +81,11 @@ contract NFYStaking is Ownable {
 
         if (block.number > lastRewardBlock && tokensInPool != 0) {
             uint256 blocksToReward = block.number.sub(lastRewardBlock);
-            uint256 nfyReward = blocksToReward.mul(rewardPerBlock);
+            uint256 nfyReward = blocksToReward.mul(getRewardPerBlock());
             _accNfyPerShare = _accNfyPerShare.add(nfyReward.mul(1e18).div(tokensInPool));
         }
 
-        return nft._NFYDeposited.mul(_accNfyPerShare).div(1e18).sub(nft._pendingRewards);
+        return nft._NFYDeposited.mul(_accNfyPerShare).div(1e18).sub(nft._rewardDebt);
     }
 
     /*function displayTotalRewards(uint[] _NFTs) public view returns(uint) {
@@ -104,8 +106,7 @@ contract NFYStaking is Ownable {
 
         uint256 blocksToReward = block.number.sub(lastRewardBlock);
 
-        rewardPerBlock = getRewardPerBlock();
-        uint256 nfyReward = blocksToReward.mul(rewardPerBlock);
+        uint256 nfyReward = blocksToReward.mul(getRewardPerBlock());
 
         //Approve nfyReward here
         NFYToken.transferFrom(rewardPool, address(this), nfyReward);
@@ -117,45 +118,74 @@ contract NFYStaking is Ownable {
     // Function that lets user stake NFY
     function stakeNFY(uint _amount) public {
         require(_amount > 0, "Can not stake 0 NFY");
-        require(NFYToken.balanceOf(msg.sender) >= _amount, "Do not have enough NFY to stake");
+        require(NFYToken.balanceOf(_msgSender()) >= _amount, "Do not have enough NFY to stake");
 
         updatePool();
 
         if(StakingNFT.nftTokenId(_msgSender()) == 0 || StakingNFT.balanceOf(_msgSender()) == 0 || StakingNFT.ownerOf(StakingNFT.nftTokenId(_msgSender())) != _msgSender() ){
-             addStakeholder(msg.sender);
+             addStakeholder(_msgSender());
         }
 
         NFT storage nft = NFTDetails[StakingNFT.nftTokenId(_msgSender())];
 
         if(nft._NFYDeposited > 0) {
-            uint _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._pendingRewards);
+            uint _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
 
             if(_pendingRewards > 0) {
                 NFYToken.transfer(_msgSender(), _pendingRewards);
+                emit RewardsClaimed(_msgSender(), _pendingRewards, StakingNFT.nftTokenId(_msgSender()), now);
             }
         }
 
-        NFYToken.transferFrom(msg.sender, address(this), _amount);
+        NFYToken.transferFrom(_msgSender(), address(this), _amount);
         nft._NFYDeposited = nft._NFYDeposited.add(_amount);
 
-        nft._pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18);
-        emit StakeCompleted(msg.sender, _amount, StakingNFT.nftTokenId(msg.sender), nft._NFYDeposited, now);
+        nft._rewardDebt = nft._NFYDeposited.mul(accNfyPerShare).div(1e18);
+
+        emit StakeCompleted(_msgSender(), _amount, StakingNFT.nftTokenId(_msgSender()), nft._NFYDeposited, now);
+
     }
 
     function addStakeholder(address _stakeholder) private {
-      taking.call(abi.encodeWithSignature("mint(address)", _stakeholder));
-        NFTDetails[StakingNFT.nftTokenId(msg.sender)]._addressOfMinter = _stakeholder;
-        NFTDetails[StakingNFT.nftTokenId(msg.sender)]._inCirculation = true;
+      staking.call(abi.encodeWithSignature("mint(address)", _stakeholder));
+        NFTDetails[StakingNFT.nftTokenId(_msgSender())]._addressOfMinter = _stakeholder;
+        NFTDetails[StakingNFT.nftTokenId(_msgSender())]._inCirculation = true;
     }
 
+    // Function that will allow user to claim rewards
     function claimReward(uint _tokenId) public {
         require(StakingNFT.ownerOf(_tokenId) == _msgSender(), "User is not owner of token");
         require(NFTDetails[_tokenId]._inCirculation == true, "Stake has already been withdrawn");
+
+        updatePool();
+
+        NFT storage nft = NFTDetails[_tokenId];
+
+        uint _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
+        require(_pendingRewards > 0, "No rewards to claim!");
+
+        NFYToken.transfer(_msgSender(), _pendingRewards);
+
+        emit RewardsClaimed(_msgSender(), _pendingRewards, _tokenId, now);
     }
 
+    // Function that will add NFY rewards to NFY staking NFT
     function compoundReward(uint _tokenId) public {
         require(StakingNFT.ownerOf(_tokenId) == _msgSender(), "User is not owner of token");
         require(NFTDetails[_tokenId]._inCirculation == true, "Stake has already been withdrawn");
+
+        updatePool();
+
+        NFT storage nft = NFTDetails[_tokenId];
+
+        uint _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
+        require(_pendingRewards > 0, "No rewards to compound!");
+
+        nft._NFYDeposited = nft._NFYDeposited.add(_pendingRewards);
+
+        nft._rewardDebt = nft._NFYDeposited.mul(accNfyPerShare).div(1e18);
+
+        emit RewardsCompounded(_msgSender(), _pendingRewards, _tokenId, nft._NFYDeposited, now);
     }
 
     // Function that lets user unstake NFY in system. 5% fee that gets redistributed back to reward pool
@@ -168,23 +198,24 @@ contract NFYStaking is Ownable {
 
         NFT storage nft = NFTDetails[_tokenId];
 
-        uint _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._pendingRewards);
+        uint _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
 
         uint amountStaked = getNFTBalance(_tokenId);
-        uint totalSending = amountStaked.add(_pendingRewards);
-        uint userReceives = totalSending.div(100).mul(95);
+        uint userReceives = amountStaked.div(100).mul(95);
+        uint totalSending = userReceives.add(_pendingRewards);
         uint fee = totalSending.div(100).mul(5);
 
         nft._NFYDeposited = 0;
         nft._inCirculation = false;
-        StakingNFT.revertNftTokenId(msg.sender, _tokenId);
+        StakingNFT.revertNftTokenId(_msgSender(), _tokenId);
 
-        taking.call(abi.encodeWithSignature("burn(uint256)", _tokenId));
+        staking.call(abi.encodeWithSignature("burn(uint256)", _tokenId));
 
         NFYToken.transfer(_msgSender(), userReceives);
         NFYToken.transfer(rewardPool, fee);
 
         emit WithdrawCompleted(_msgSender(), userReceives, _tokenId, now);
+        emit RewardsClaimed(_msgSender(), _pendingRewards, _tokenId, now);
     }
 
     // Will increment value of staking NFT when trade occurs
