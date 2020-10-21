@@ -141,7 +141,7 @@ contract NFYStaking is Ownable {
 
         updatePool();
 
-        if(StakingNFT.nftTokenId(_msgSender()) == 0 || StakingNFT.balanceOf(_msgSender()) == 0 || StakingNFT.ownerOf(StakingNFT.nftTokenId(_msgSender())) != _msgSender() ){
+        if(StakingNFT.nftTokenId(_msgSender()) == 0){
              addStakeholder(_msgSender());
         }
 
@@ -186,6 +186,8 @@ contract NFYStaking is Ownable {
 
         NFYToken.transfer(_msgSender(), _pendingRewards);
 
+        nft._rewardDebt = nft._NFYDeposited.mul(accNfyPerShare).div(1e18);
+
         emit RewardsClaimed(_msgSender(), _pendingRewards, _tokenId, now);
     }
 
@@ -212,14 +214,16 @@ contract NFYStaking is Ownable {
     // Function that lets user claim all rewards from all their nfts
     function claimAllRewards() public {
         for(uint i = 0; i < StakingNFT.balanceOf(_msgSender()); i++) {
-            claimRewards(i);
+            uint _currentNFT = StakingNFT.tokenOfOwnerByIndex(_msgSender(), i);
+            claimRewards(_currentNFT);
         }
     }
 
     // Function that lets user compound all rewards from all their nfts
     function compoundAllRewards() public {
         for(uint i = 0; i < StakingNFT.balanceOf(_msgSender()); i++) {
-            compoundRewards(i);
+            uint _currentNFT = StakingNFT.tokenOfOwnerByIndex(_msgSender(), i);
+            compoundRewards(_currentNFT);
         }
     }
 
