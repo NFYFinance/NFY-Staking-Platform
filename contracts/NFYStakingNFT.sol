@@ -39,7 +39,14 @@ contract NFYStakingNFT is Ownable, ERC721 {
     }
     
     function nftTokenId(address _stakeholder) external view returns(uint id){
-       return nftId[_stakeholder];
+        if(ownerOf(nftId[_stakeholder]) != _stakeholder) {
+            return 0;
+        }
+
+        else {
+            return nftId[_stakeholder];
+        }
+
     }
     
      function burn(uint256 _token) external onlyPlatform() {

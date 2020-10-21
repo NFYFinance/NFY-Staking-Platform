@@ -173,7 +173,7 @@ contract NFYStaking is Ownable {
     }
 
     // Function that will allow user to claim rewards
-    function claimReward(uint _tokenId) public {
+    function claimRewards(uint _tokenId) public {
         require(StakingNFT.ownerOf(_tokenId) == _msgSender(), "User is not owner of token");
         require(NFTDetails[_tokenId]._inCirculation == true, "Stake has already been withdrawn");
 
@@ -190,7 +190,7 @@ contract NFYStaking is Ownable {
     }
 
     // Function that will add NFY rewards to NFY staking NFT
-    function compoundReward(uint _tokenId) public {
+    function compoundRewards(uint _tokenId) public {
         require(StakingNFT.ownerOf(_tokenId) == _msgSender(), "User is not owner of token");
         require(NFTDetails[_tokenId]._inCirculation == true, "Stake has already been withdrawn");
 
@@ -207,6 +207,20 @@ contract NFYStaking is Ownable {
         nft._rewardDebt = nft._NFYDeposited.mul(accNfyPerShare).div(1e18);
 
         emit RewardsCompounded(_msgSender(), _pendingRewards, _tokenId, nft._NFYDeposited, now);
+    }
+
+    // Function that lets user claim all rewards from all their nfts
+    function claimAllRewards() public {
+        for(uint i = 0; i < StakingNFT.balanceOf(_msgSender()); i++) {
+            claimRewards(i);
+        }
+    }
+
+    // Function that lets user compound all rewards from all their nfts
+    function compoundAllRewards() public {
+        for(uint i = 0; i < StakingNFT.balanceOf(_msgSender()); i++) {
+            compoundRewards(i);
+        }
     }
 
     // Function that lets user unstake NFY in system. 5% fee that gets redistributed back to reward pool
