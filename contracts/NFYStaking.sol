@@ -33,20 +33,31 @@ contract NFYStaking is Ownable {
     address public rewardPool;
     address public taking;
     uint public rewardPerBlock;
+    uint public dailyReward;
     uint public accNfyPerShare;
     uint public lastRewardBlock;
 
     mapping(uint => NFT) public NFTDetails;
 
     // Constructor will set the address of NFY token and address of NFY staking NFT
-    constructor(address _NFYToken, address _StakingNFT, address _taking, address _rewardPool, uint _rewardPerBlock) Ownable() public {
+    constructor(address _NFYToken, address _StakingNFT, address _taking, address _rewardPool, uint _dailyReward) Ownable() public {
         NFYToken = IERC20(_NFYToken);
         StakingNFT = IStakingNFT(_StakingNFT);
         taking = _taking;
         rewardPool = _rewardPool;
         lastRewardBlock = block.number;
-        rewardPerBlock = _rewardPerBlock;
+        setDailyReward(_dailyReward);
+        rewardPerBlock = getRewardPerBlock();
         accNfyPerShare = 0;
+    }
+
+    // 6500 blocks in average day --- decimals * NFY balance of rewardPool / blocks / 1000 (0.1%) = rewardPerBlock
+    function getRewardPerBlock() public view returns(uint) {
+        return NFYToken.balanceOf(rewardPool) / 6500 / dailyReward;
+    }
+
+    function setDailyReward(uint _dailyReward) public onlyOwner {
+        dailyReward = _dailyReward;
     }
 
     // Function that will get balance of a NFY balance of a certain stake
@@ -92,6 +103,8 @@ contract NFYStaking is Ownable {
         }
 
         uint256 blocksToReward = block.number.sub(lastRewardBlock);
+
+        rewardPerBlock = getRewardPerBlock();
         uint256 nfyReward = blocksToReward.mul(rewardPerBlock);
 
         //Approve nfyReward here
@@ -132,28 +145,36 @@ contract NFYStaking is Ownable {
     function addStakeholder(address _stakeholder) private {
       taking.call(abi.encodeWithSignature("mint(address)", _stakeholder));
         NFTDetails[StakingNFT.nftTokenId(msg.sender)]._addressOfMinter = _stakeholder;
-        //NFTDetails[StakingNFT.nftTokenId(msg.sender)]._currentOwner = _stakeholder;
         NFTDetails[StakingNFT.nftTokenId(msg.sender)]._inCirculation = true;
+    }
+
+    function claimReward(uint _tokenId) public {
+        require(StakingNFT.ownerOf(_tokenId) == _msgSender(), "User is not owner of token");
+        require(NFTDetails[_tokenId]._inCirculation == true, "Stake has already been withdrawn");
+    }
+
+    function compoundReward(uint _tokenId) public {
+        require(StakingNFT.ownerOf(_tokenId) == _msgSender(), "User is not owner of token");
+        require(NFTDetails[_tokenId]._inCirculation == true, "Stake has already been withdrawn");
     }
 
     // Function that lets user unstake NFY in system. 5% fee that gets redistributed back to reward pool
     function unstakeNFY(uint _tokenId) public {
         // Require that user is owner of token id
         require(StakingNFT.ownerOf(_tokenId) == _msgSender(), "User is not owner of token");
-        //require(StakingNFT.nftTokenId(_msgSender()) == _tokenId, "User is not owner of specified token id");
         require(NFTDetails[_tokenId]._inCirculation == true, "Stake has already been withdrawn");
-        //require(NFTDetails[StakingNFT.nftTokenId(msg.sender)]._addressOfMinter == msg.sender, "Can not unstake a token you do not have");
 
         updatePool();
 
         NFT storage nft = NFTDetails[_tokenId];
 
-        uint amountStaked = getNFTBalance(_tokenId);
-        uint userReceives = amountStaked.div(100).mul(95);
-        uint fee = amountStaked.div(100).mul(5);
+        uint _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._pendingRewards);
 
-        //NFTDetails[_tokenId]._currentOwner = 0x000000000000000000000000000000000000dEaD;
-        //NFTDetails[_tokenId]._previousOwner = msg.sender;
+        uint amountStaked = getNFTBalance(_tokenId);
+        uint totalSending = amountStaked.add(_pendingRewards);
+        uint userReceives = totalSending.div(100).mul(95);
+        uint fee = totalSending.div(100).mul(5);
+
         nft._NFYDeposited = 0;
         nft._inCirculation = false;
         StakingNFT.revertNftTokenId(msg.sender, _tokenId);
