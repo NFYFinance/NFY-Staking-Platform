@@ -89,11 +89,11 @@ contract NFYStaking is Ownable {
     }
 
     // Get total rewards for all of user's NFY nfts
-    function getTotalRewards() public view returns(uint) {
+    function getTotalRewards(address _address) public view returns(uint) {
         uint totalRewards;
 
-        for(uint i = 0; i < StakingNFT.balanceOf(_msgSender()); i++) {
-            uint _rewardPerNFT = pendingRewards(StakingNFT.tokenOfOwnerByIndex(_msgSender(), i));
+        for(uint i = 0; i < StakingNFT.balanceOf(_address); i++) {
+            uint _rewardPerNFT = pendingRewards(StakingNFT.tokenOfOwnerByIndex(_address, i));
             totalRewards = totalRewards.add(_rewardPerNFT);
         }
 
@@ -101,15 +101,22 @@ contract NFYStaking is Ownable {
     }
 
     // Get total stake for all user's NFY nfts
-    function getTotalBalance() public view returns(uint) {
+    function getTotalBalance(address _address) public view returns(uint) {
         uint totalBalance;
 
-        for(uint i = 0; i < StakingNFT.balanceOf(_msgSender()); i++) {
-            uint _balancePerNFT = getNFTBalance(StakingNFT.tokenOfOwnerByIndex(_msgSender(), i));
+        for(uint i = 0; i < StakingNFT.balanceOf(_address); i++) {
+            uint _balancePerNFT = getNFTBalance(StakingNFT.tokenOfOwnerByIndex(_address, i));
             totalBalance = totalBalance.add(_balancePerNFT);
         }
 
         return totalBalance;
+    }
+
+    // Function that returns apy
+    function getAPY() public view returns(uint){
+        uint _rewardsPerDay = getRewardPerBlock().mul(6500);
+        uint _rewardsPerYear = _rewardsPerDay.mul(365);
+        return _rewardsPerYear.div(totalStaked).mul(1e20);
     }
 
     // Function that updates NFY pool
