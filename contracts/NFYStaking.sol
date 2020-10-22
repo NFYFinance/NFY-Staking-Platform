@@ -247,9 +247,10 @@ contract NFYStaking is Ownable {
         uint _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
 
         uint amountStaked = getNFTBalance(_tokenId);
-        uint userReceives = amountStaked.div(100).mul(95);
-        uint totalSending = userReceives.add(_pendingRewards);
-        uint fee = totalSending.div(100).mul(5);
+        uint stakeAfterFees = amountStaked.div(100).mul(95);
+        uint userReceives = amountStaked.div(100).mul(95).add(_pendingRewards);
+
+        uint fee = amountStaked.div(100).mul(5);
 
         uint beingWithdrawn = nft._NFYDeposited;
         nft._NFYDeposited = 0;
@@ -262,7 +263,7 @@ contract NFYStaking is Ownable {
         NFYToken.transfer(_msgSender(), userReceives);
         NFYToken.transfer(rewardPool, fee);
 
-        emit WithdrawCompleted(_msgSender(), userReceives, _tokenId, now);
+        emit WithdrawCompleted(_msgSender(), stakeAfterFees, _tokenId, now);
         emit RewardsClaimed(_msgSender(), _pendingRewards, _tokenId, now);
     }
 

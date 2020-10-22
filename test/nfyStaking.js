@@ -2,6 +2,7 @@ const NFYStakingNFT = artifacts.require("NFYStakingNFT");
 const NFYStaking = artifacts.require("NFYStaking");
 const Token = artifacts.require("Demo");
 const truffleAssert = require("truffle-assertions");
+const RewardPool = artifacts.require("RewardPool");
 
 
 contract("NFYStaking", async (accounts) => {
@@ -11,6 +12,7 @@ contract("NFYStaking", async (accounts) => {
     let user;
     let user2;
     let user3;
+    let rewardTokensBefore
     let token;
     let nfyStakingNFT;
     let nfyStaking;
@@ -20,9 +22,6 @@ contract("NFYStaking", async (accounts) => {
      before(async () => {
         // Owner address
         owner = accounts[1];
-
-        // Address of reward pool
-        rewardPool = accounts[2];
 
         user = accounts[3];
 
@@ -34,11 +33,13 @@ contract("NFYStaking", async (accounts) => {
         allowanceBefore = 2000;
         stakeAmountBefore = 5;
         moreThanBalanceBefore = 1005;
+        rewardTokensBefore = 60000
 
         initialBalance = web3.utils.toWei(initialBalanceBefore.toString(), 'ether');
         allowance = web3.utils.toWei(allowanceBefore.toString(), 'ether');
         stakeAmount = web3.utils.toWei(stakeAmountBefore.toString(), 'ether');
         moreThanBalance = web3.utils.toWei(moreThanBalanceBefore.toString(), 'ether');
+        rewardTokens = web3.utils.toWei(rewardTokensBefore.toString(), 'ether');
 
      });
 
@@ -48,11 +49,17 @@ contract("NFYStaking", async (accounts) => {
         // Token deployment
         nfyStakingNFT = await NFYStakingNFT.new();
 
+        rewardPool = await RewardPool.new(token.address);
+
+        token.faucet(rewardPool.address, rewardTokens);
+
         // Funding deployment
-        nfyStaking = await NFYStaking.new(token.address, nfyStakingNFT.address, nfyStakingNFT.address, rewardPool, 0);
+        nfyStaking = await NFYStaking.new(token.address, nfyStakingNFT.address, nfyStakingNFT.address, rewardPool.address, 1000);
 
         // Add NFY Staking contract as a platform address
         await nfyStakingNFT.addPlatformAddress(nfyStaking.address);
+
+        await rewardPool.allowTransferToStaking(nfyStaking.address, rewardTokens);
 
         // Transfer ownership to secured secured account
         await nfyStakingNFT.transferOwnership(owner);
@@ -74,11 +81,11 @@ contract("NFYStaking", async (accounts) => {
         });
 
         it('should set staking address properly', async () => {
-            assert.strictEqual(nfyStakingNFT.address, await nfyStaking.taking());
+            assert.strictEqual(nfyStakingNFT.address, await nfyStaking.staking());
         });
 
         it('should set reward pool address properly', async () => {
-            assert.strictEqual(rewardPool, await nfyStaking.rewardPool());
+            assert.strictEqual(rewardPool.address, await nfyStaking.rewardPool());
         });
 
         it('should set owner properly', async () => {
@@ -115,7 +122,7 @@ contract("NFYStaking", async (accounts) => {
             await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
         });
 
-        it('should not allow a user to stake 0 tokens', async () => {
+        it('should NOT allow a user to stake 0 tokens', async () => {
             await token.approve(nfyStaking.address, allowance, {from: user});
             await truffleAssert.reverts(nfyStaking.stakeNFY(0, {from: user}), "Can not stake 0 NFY");
         });
@@ -199,13 +206,14 @@ contract("NFYStaking", async (accounts) => {
 
             const transaction2 = await nfyStaking.stakeNFY(stakeAmount, {from: user});
 
-            assert.strictEqual("StakeCompleted", transaction2.logs[0].event);
-            assert.strictEqual(1, transaction2.logs.length);
-            assert.strictEqual(user, transaction2.logs[0].args._staker);
-            assert.strictEqual(BigInt(stakeAmount), BigInt(transaction2.logs[0].args._amount));
-            assert.strictEqual(1, transaction2.logs[0].args._tokenId.toNumber());
+            assert.strictEqual("RewardsClaimed", transaction2.logs[0].event);
+            assert.strictEqual("StakeCompleted", transaction2.logs[1].event);
+            assert.strictEqual(2, transaction2.logs.length);
+            assert.strictEqual(user, transaction2.logs[1].args._staker);
+            assert.strictEqual(BigInt(stakeAmount), BigInt(transaction2.logs[1].args._amount));
+            assert.strictEqual(1, transaction2.logs[1].args._tokenId.toNumber());
 
-            const secondStake = transaction2.logs[0].args._totalStaked.toString();
+            const secondStake = transaction2.logs[1].args._totalStaked.toString();
             console.log(secondStake);
             console.log((stakeAmount * 2).toString());
 
@@ -237,13 +245,14 @@ contract("NFYStaking", async (accounts) => {
 
             const transaction3 = await nfyStaking.stakeNFY(stakeAmount, {from: user});
 
-            assert.strictEqual("StakeCompleted", transaction3.logs[0].event);
-            assert.strictEqual(1, transaction3.logs.length);
-            assert.strictEqual(user, transaction3.logs[0].args._staker);
-            assert.strictEqual(BigInt(stakeAmount), BigInt(transaction3.logs[0].args._amount));
-            assert.strictEqual(2, transaction3.logs[0].args._tokenId.toNumber());
+            assert.strictEqual("RewardsClaimed", transaction3.logs[0].event);
+            assert.strictEqual("StakeCompleted", transaction3.logs[1].event);
+            assert.strictEqual(2, transaction3.logs.length);
+            assert.strictEqual(user, transaction3.logs[1].args._staker);
+            assert.strictEqual(BigInt(stakeAmount), BigInt(transaction3.logs[1].args._amount));
+            assert.strictEqual(2, transaction3.logs[1].args._tokenId.toNumber());
 
-            const secondStake = transaction3.logs[0].args._totalStaked.toString();
+            const secondStake = transaction3.logs[1].args._totalStaked.toString();
             console.log(secondStake);
             console.log((stakeAmount * 2).toString());
 
@@ -327,35 +336,41 @@ contract("NFYStaking", async (accounts) => {
             console.log(BigInt(balanceBefore));
 
             const unstake = await (nfyStaking.unstakeNFY(tokenId, {from: user}));
-            assert.strictEqual(1, unstake.logs.length);
+            assert.strictEqual(2, unstake.logs.length);
             console.log(BigInt(unstake.logs[0].args._amount));
+
+            const rewards = BigInt(unstake.logs[1].args._rewardsClaimed);
 
             const balanceAfter = await token.balanceOf(user);
             console.log(BigInt(balanceAfter));
             console.log(BigInt(balanceBefore) + (BigInt(amountStaked) / BigInt(100) * BigInt(95)));
 
-            assert.strictEqual(BigInt(balanceBefore) + (BigInt(amountStaked) / BigInt(100) * BigInt(95)), BigInt(balanceAfter));
+            assert.strictEqual((BigInt(balanceBefore) + rewards + (BigInt(amountStaked) / BigInt(100) * BigInt(95))).toString(), (BigInt(balanceAfter)).toString());
         });
 
         it('should update reward pool after withdraw', async () => {
             await token.approve(nfyStaking.address, allowance, {from: user});
+            const balanceBefore = await token.balanceOf(rewardPool.address);
             const stake = await nfyStaking.stakeNFY(stakeAmount, {from: user});
-            const stake2 = await nfyStaking.stakeNFY(stakeAmount, {from: user});
-            const tokenId = stake2.logs[0].args._tokenId.toNumber();
-            const amountStaked = BigInt(stake2.logs[0].args._totalStaked);
+            const tokenId = stake.logs[1].args._tokenId.toNumber();
+            const amountStaked = BigInt(stake.logs[1].args._totalStaked);
 
-            const balanceBefore = await token.balanceOf(rewardPool);
             console.log(BigInt(balanceBefore));
 
             const unstake = await (nfyStaking.unstakeNFY(tokenId, {from: user}));
-            assert.strictEqual(1, unstake.logs.length);
+            assert.strictEqual(2, unstake.logs.length);
             console.log(BigInt(unstake.logs[0].args._amount));
+            const rewards = BigInt(unstake.logs[1].args._rewardsClaimed);
 
-            const balanceAfter = await token.balanceOf(rewardPool);
-            console.log(BigInt(balanceAfter));
-            console.log(BigInt(balanceBefore) + (BigInt(amountStaked) / BigInt(100) * BigInt(5)));
+            const balanceAfter = await token.balanceOf(rewardPool.address);
 
-            assert.strictEqual(BigInt(balanceBefore) + (BigInt(amountStaked) / BigInt(100) * BigInt(5)), BigInt(balanceAfter));
+            const balanceAfterShouldBe = (BigInt(balanceBefore) + (BigInt(amountStaked) / BigInt(100) * BigInt(5)) - rewards);
+            const balanceAfterShouldBeToString = balanceAfterShouldBe.toString();
+            console.log(BigInt(balanceAfter.toString()));
+            console.log(balanceAfterShouldBeToString);
+            console.log(rewards.toString());
+
+            assert.strictEqual(balanceAfterShouldBeToString, balanceAfter.toString());
         });
 
         it('should set user nft Token Id to 0 after unstake', async () => {
@@ -442,14 +457,16 @@ contract("NFYStaking", async (accounts) => {
             console.log(BigInt(balanceBefore));
 
             const unstake = await (nfyStaking.unstakeNFY(tokenId, {from: user2}));
-            assert.strictEqual(1, unstake.logs.length);
+            const rewards = BigInt(unstake.logs[1].args._rewardsClaimed);
+
+            assert.strictEqual(2, unstake.logs.length);
             console.log(BigInt(unstake.logs[0].args._amount));
 
             const balanceAfter = await token.balanceOf(user2);
             console.log(BigInt(balanceAfter));
             console.log(BigInt(balanceBefore) + (BigInt(amountStaked) / BigInt(100) * BigInt(95)));
 
-            assert.strictEqual(BigInt(balanceBefore) + (BigInt(amountStaked) / BigInt(100) * BigInt(95)), BigInt(balanceAfter));
+            assert.strictEqual((BigInt(balanceBefore) + rewards +  (BigInt(amountStaked) / BigInt(100) * BigInt(95))).toString(), (BigInt(balanceAfter).toString()));
         });
 
         it('should NOT allow a user to unstake a token that they have sent', async () => {
@@ -494,7 +511,9 @@ contract("NFYStaking", async (accounts) => {
             await truffleAssert.reverts(nfyStaking.unstakeNFY(tokenId, {from: user}));
             await truffleAssert.reverts(nfyStaking.unstakeNFY(tokenId, {from: user2}));
             const unstake = await(nfyStaking.unstakeNFY(tokenId, {from: user3}));
-            assert.strictEqual(1, unstake.logs.length);
+            const rewards = BigInt(unstake.logs[1].args._rewardsClaimed);
+
+            assert.strictEqual(2, unstake.logs.length);
             console.log(BigInt(unstake.logs[0].args._amount));
 
             const balanceAfter1 = await token.balanceOf(user);
@@ -509,7 +528,7 @@ contract("NFYStaking", async (accounts) => {
 
             assert.strictEqual(BigInt(balanceBefore1), (BigInt(balanceAfter1)));
             assert.strictEqual(BigInt(balanceBefore2), (BigInt(balanceAfter2)));
-            assert.strictEqual(BigInt(balanceBefore3) + (BigInt(amountStaked) / BigInt(100) * BigInt(95)), BigInt(balanceAfter3));
+            assert.strictEqual((BigInt(balanceBefore3) + rewards + (BigInt(amountStaked) / BigInt(100) * BigInt(95))).toString(), (BigInt(balanceAfter3)).toString());
         });
 
      });
