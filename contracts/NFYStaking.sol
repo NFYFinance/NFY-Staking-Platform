@@ -266,6 +266,14 @@ contract NFYStaking is Ownable {
         emit RewardsClaimed(_msgSender(), _pendingRewards, _tokenId, now);
     }
 
+    // Function that will unstake every user's NFY stake NFT
+    function unstakeAll() public {
+        for(uint i = 0; i < StakingNFT.balanceOf(_msgSender()); i++) {
+            uint _currentNFT = StakingNFT.tokenOfOwnerByIndex(_msgSender(), i);
+            unstakeNFY(_currentNFT);
+        }
+    }
+
     // Will increment value of staking NFT when trade occurs
     function incrementNFTValue (uint _tokenId, uint _amount) external onlyPlatform() {
         NFTDetails[_tokenId]._NFYDeposited =  NFTDetails[_tokenId]._NFYDeposited.add(_amount);
