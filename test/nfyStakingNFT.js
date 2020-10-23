@@ -72,7 +72,6 @@ contract("NFYStakingNFT", async (accounts) => {
         it('should NOT let owner mint new NFT directly from contract', async () => {
             await truffleAssert.reverts(nfyStakingNFT.mint(owner, {from: owner}));
         });
-
      });
 
      describe("# revertNftTokenId()", () => {
@@ -90,7 +89,52 @@ contract("NFYStakingNFT", async (accounts) => {
 
             await truffleAssert.reverts(nfyStakingNFT.revertNftTokenId(user, 1, {from: owner}));
         });
+     });
 
+     describe("# nftTokenId ()", () => {
+        it('should return 0 if stakeholder address has no NFY staking nft', async () => {
+            const returnVal = await nfyStakingNFT.nftTokenId(user);
+            assert.strictEqual(0, returnVal.toNumber());
+        });
+
+        it('should return 0 if stakeholder sent nft', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+
+            const returnValBefore = await nfyStakingNFT.nftTokenId(user);
+
+            assert.strictEqual(1, returnValBefore.toNumber());
+            await nfyStakingNFT.transferFrom(user, user2, 1, {from: user});
+
+            const returnValAfter = await nfyStakingNFT.nftTokenId(user);
+            assert.strictEqual(0, returnValAfter.toNumber());
+        });
+
+        it('should return token id that stake holder minted', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await token.approve(nfyStaking.address, allowance, {from: user2});
+
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user2}));
+
+            const returnVal1 = await nfyStakingNFT.nftTokenId(user);
+            assert.strictEqual(1, returnVal1.toNumber());
+
+            const returnVal2 = await nfyStakingNFT.nftTokenId(user2);
+            assert.strictEqual(2, returnVal2.toNumber());
+        });
+
+        it('should return 0 if stake holder unstaked', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+
+            const returnValBefore = await nfyStakingNFT.nftTokenId(user);
+            assert.strictEqual(1, returnValBefore.toNumber());
+
+            nfyStaking.unstakeAll({from: user});
+            const returnValAfter = await nfyStakingNFT.nftTokenId(user2);
+            assert.strictEqual(0, returnValAfter.toNumber());
+        });
      });
 
      describe("# burn()", () => {
@@ -108,7 +152,6 @@ contract("NFYStakingNFT", async (accounts) => {
 
             await truffleAssert.reverts(nfyStakingNFT.burn(1, {from: owner}));
         });
-
      });
 
 });

@@ -5,10 +5,6 @@ const truffleAssert = require("truffle-assertions");
 const RewardPool = artifacts.require("RewardPool");
 const helper = require('./utils/utils.js');
 
-const SECONDS_IN_DAY = 86400;
-
-
-
 contract("NFYStaking", async (accounts) => {
 
     let owner;
@@ -16,6 +12,7 @@ contract("NFYStaking", async (accounts) => {
     let user;
     let user2;
     let user3;
+    let testPlatform;
     let rewardTokensBefore
     let token;
     let nfyStakingNFT;
@@ -32,6 +29,8 @@ contract("NFYStaking", async (accounts) => {
         user2 = accounts[4];
 
         user3 = accounts[5];
+
+        testPlatform = accounts[6];
 
         initialBalanceBefore = 1000
         allowanceBefore = 2000;
@@ -62,6 +61,9 @@ contract("NFYStaking", async (accounts) => {
 
         // Add NFY Staking contract as a platform address
         await nfyStakingNFT.addPlatformAddress(nfyStaking.address);
+
+        // Add test platform for nfyStaking
+        await nfyStaking.addPlatformAddress(testPlatform);
 
         await rewardPool.allowTransferToStaking(nfyStaking.address, rewardTokens);
 
@@ -130,6 +132,13 @@ contract("NFYStaking", async (accounts) => {
      describe("# getNFTBalance()", () => {
         it('should return 0 if the NFT does not exist', async () => {
             assert.strictEqual(0, (await nfyStaking.getNFTBalance(1)).toNumber());
+        });
+
+        it('should return correct balance when user stakes', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+
+            assert.strictEqual(stakeAmount.toString(), (BigInt(await nfyStaking.getNFTBalance(1)).toString()));
         });
      });
 
@@ -297,6 +306,107 @@ contract("NFYStaking", async (accounts) => {
 
      });
 
+     describe("# updatePool()", () => {
+        it('should emit proper amount of blocks to reward', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            let update = await nfyStaking.updatePool();
+
+            assert.strictEqual("PoolUpdated", update.logs[0].event);
+            assert.strictEqual(1, update.logs.length);
+
+            assert.strictEqual(21, update.logs[0].args._blocksRewarded.toNumber());
+        });
+
+        it('should emit proper reward to send to staking address', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            const previousRewardPerBlock = BigInt(await nfyStaking.getRewardPerBlock());
+            let update = await nfyStaking.updatePool();
+
+            assert.strictEqual("PoolUpdated", update.logs[0].event);
+
+            assert.strictEqual((previousRewardPerBlock * BigInt(21)).toString(), update.logs[0].args._amountRewarded.toString());
+        });
+
+        it('should send proper rewarda to staking address', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            const stakingAddressBefore = await token.balanceOf(nfyStaking.address);
+
+            const previousRewardPerBlock = BigInt(await nfyStaking.getRewardPerBlock());
+            let update = await nfyStaking.updatePool();
+
+            const stakingAddressAfter = await token.balanceOf(nfyStaking.address);
+
+            assert.strictEqual((BigInt(update.logs[0].args._amountRewarded) + BigInt(stakingAddressBefore)).toString(), (BigInt(stakingAddressAfter)).toString());
+        });
+
+        it('should update accNfyPerShare', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+
+            const accNfyBefore = BigInt(await nfyStaking.accNfyPerShare());
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            let update = await nfyStaking.updatePool();
+
+            const accNfyAfter = BigInt(await nfyStaking.accNfyPerShare());
+            const rewardsToSend = BigInt(update.logs[0].args._amountRewarded);
+
+            assert.strictEqual((accNfyBefore + rewardsToSend * BigInt(1e18) / BigInt(await nfyStaking.totalStaked())).toString(),accNfyAfter.toString())
+        });
+
+        it('should update last reward block', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            const lastRewardBlockBefore = BigInt(await nfyStaking.lastRewardBlock());
+
+            const previousRewardPerBlock = BigInt(await nfyStaking.getRewardPerBlock());
+            let update = await nfyStaking.updatePool();
+
+            const lastRewardBlockAfter = BigInt(await nfyStaking.lastRewardBlock());
+
+            const stakingAddressAfter = await token.balanceOf(nfyStaking.address);
+
+            assert.strictEqual(lastRewardBlockAfter.toString(), (lastRewardBlockBefore + BigInt(update.logs[0].args._blocksRewarded)).toString());
+        });
+
+     });
+
      describe("# stakeNFY()", () => {
 
         it('should REVERT if user tries to stake with out allowing', async () => {
@@ -365,15 +475,15 @@ contract("NFYStaking", async (accounts) => {
             assert.strictEqual(BigInt(stakeAmount), BigInt(transaction1.logs[1].args._amount));
             assert.strictEqual(1, transaction1.logs[1].args._tokenId.toNumber());
 
-            assert.strictEqual("MintedToken", transaction2.logs[0].event);
-            assert.strictEqual(user2, transaction2.logs[0].args._staker);
-
-            assert.strictEqual(2, transaction2.logs[0].args._tokenId.toNumber());
-            assert.strictEqual(2, transaction2.logs.length);
-            assert.strictEqual("StakeCompleted", transaction2.logs[1].event);
+            assert.strictEqual("MintedToken", transaction2.logs[1].event);
             assert.strictEqual(user2, transaction2.logs[1].args._staker);
-            assert.strictEqual(BigInt(stakeAmount), BigInt(transaction2.logs[1].args._amount));
+
             assert.strictEqual(2, transaction2.logs[1].args._tokenId.toNumber());
+            assert.strictEqual(3, transaction2.logs.length);
+            assert.strictEqual("StakeCompleted", transaction2.logs[2].event);
+            assert.strictEqual(user2, transaction2.logs[2].args._staker);
+            assert.strictEqual(BigInt(stakeAmount), BigInt(transaction2.logs[2].args._amount));
+            assert.strictEqual(2, transaction2.logs[2].args._tokenId.toNumber());
         });
 
         it('should NOT mint new NFT when existing user stakes', async () => {
@@ -397,14 +507,14 @@ contract("NFYStaking", async (accounts) => {
 
             const transaction2 = await nfyStaking.stakeNFY(stakeAmount, {from: user});
 
-            assert.strictEqual("RewardsClaimed", transaction2.logs[0].event);
-            assert.strictEqual("StakeCompleted", transaction2.logs[1].event);
-            assert.strictEqual(2, transaction2.logs.length);
-            assert.strictEqual(user, transaction2.logs[1].args._staker);
-            assert.strictEqual(BigInt(stakeAmount), BigInt(transaction2.logs[1].args._amount));
-            assert.strictEqual(1, transaction2.logs[1].args._tokenId.toNumber());
+            assert.strictEqual("RewardsClaimed", transaction2.logs[1].event);
+            assert.strictEqual("StakeCompleted", transaction2.logs[2].event);
+            assert.strictEqual(3, transaction2.logs.length);
+            assert.strictEqual(user, transaction2.logs[2].args._staker);
+            assert.strictEqual(BigInt(stakeAmount), BigInt(transaction2.logs[2].args._amount));
+            assert.strictEqual(1, transaction2.logs[2].args._tokenId.toNumber());
 
-            const secondStake = transaction2.logs[1].args._totalStaked.toString();
+            const secondStake = transaction2.logs[2].args._totalStaked.toString();
             console.log(secondStake);
             console.log((stakeAmount * 2).toString());
 
@@ -423,27 +533,27 @@ contract("NFYStaking", async (accounts) => {
             const transaction2 = await nfyStaking.stakeNFY(stakeAmount, {from: user});
             const tokenId2 = transaction2.logs[1].args._tokenId.toNumber();
             console.log(await nfyStakingNFT.ownerOf(tokenId2));
-            assert.strictEqual(2, transaction2.logs.length);
+            assert.strictEqual(3, transaction2.logs.length);
 
-            assert.strictEqual("MintedToken", transaction2.logs[0].event);
-            assert.strictEqual(user, transaction2.logs[0].args._staker);
-
-            assert.strictEqual(2, transaction2.logs[0].args._tokenId.toNumber());
-            assert.strictEqual("StakeCompleted", transaction2.logs[1].event);
+            assert.strictEqual("MintedToken", transaction2.logs[1].event);
             assert.strictEqual(user, transaction2.logs[1].args._staker);
-            assert.strictEqual(BigInt(stakeAmount), BigInt(transaction2.logs[1].args._amount));
+
             assert.strictEqual(2, transaction2.logs[1].args._tokenId.toNumber());
+            assert.strictEqual("StakeCompleted", transaction2.logs[2].event);
+            assert.strictEqual(user, transaction2.logs[2].args._staker);
+            assert.strictEqual(BigInt(stakeAmount), BigInt(transaction2.logs[2].args._amount));
+            assert.strictEqual(2, transaction2.logs[2].args._tokenId.toNumber());
 
             const transaction3 = await nfyStaking.stakeNFY(stakeAmount, {from: user});
 
-            assert.strictEqual("RewardsClaimed", transaction3.logs[0].event);
-            assert.strictEqual("StakeCompleted", transaction3.logs[1].event);
-            assert.strictEqual(2, transaction3.logs.length);
+            assert.strictEqual("RewardsClaimed", transaction3.logs[1].event);
+            assert.strictEqual("StakeCompleted", transaction3.logs[2].event);
+            assert.strictEqual(3, transaction3.logs.length);
             assert.strictEqual(user, transaction3.logs[1].args._staker);
-            assert.strictEqual(BigInt(stakeAmount), BigInt(transaction3.logs[1].args._amount));
-            assert.strictEqual(2, transaction3.logs[1].args._tokenId.toNumber());
+            assert.strictEqual(BigInt(stakeAmount), BigInt(transaction3.logs[2].args._amount));
+            assert.strictEqual(2, transaction3.logs[2].args._tokenId.toNumber());
 
-            const secondStake = transaction3.logs[1].args._totalStaked.toString();
+            const secondStake = transaction3.logs[2].args._totalStaked.toString();
             console.log(secondStake);
             console.log((stakeAmount * 2).toString());
 
@@ -463,7 +573,7 @@ contract("NFYStaking", async (accounts) => {
             const transaction2 = await nfyStaking.stakeNFY(stakeAmount, {from: user});
             const tokenId2 = transaction2.logs[1].args._tokenId.toNumber();
             console.log(await nfyStakingNFT.ownerOf(tokenId2));
-            assert.strictEqual(2, transaction2.logs.length);
+            assert.strictEqual(3, transaction2.logs.length);
 
             const transaction3 = await nfyStaking.stakeNFY(stakeAmount, {from: user});
 
@@ -487,6 +597,288 @@ contract("NFYStaking", async (accounts) => {
             assert.strictEqual((BigInt(totalStakedBefore) + BigInt(stakeAmount * 2)).toString(), (BigInt(totalStakedAfter)).toString());
         });
 
+     });
+
+     describe("# claimRewards()", () => {
+        it('should NOT let a user who is not the owner claim the rewards', async () => {
+
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            await truffleAssert.reverts(nfyStaking.claimRewards(1, {from: user2}));
+        });
+
+        it('should let a user who is the owner claim the rewards', async () => {
+
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            await truffleAssert.passes(nfyStaking.claimRewards(1, {from: user}));
+        });
+
+        it('should update a user\'s balance after they claim rewards', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            const userBalanceBefore = BigInt(await token.balanceOf(user));
+
+            let claim = await nfyStaking.claimRewards(1, {from: user});
+
+            const userBalanceAfter = BigInt(await token.balanceOf(user));
+            const expectedRewards = BigInt(claim.logs[1].args._rewardsClaimed);
+
+            assert.strictEqual((userBalanceBefore + expectedRewards).toString(), userBalanceAfter.toString());
+        });
+
+        it('should emit proper events', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            let claim = await nfyStaking.claimRewards(1, {from: user});
+            assert.strictEqual(2, claim.logs.length);
+            assert.strictEqual("PoolUpdated", claim.logs[0].event);
+            assert.strictEqual("RewardsClaimed", claim.logs[1].event);
+
+            assert.strictEqual(claim.logs[1].args._staker, user);
+            assert.strictEqual(claim.logs[1].args._tokenId.toNumber(), 1);
+        });
+
+     });
+
+     describe("# compoundRewards()", () => {
+        it('should NOT let a user who is not the owner compound the rewards', async () => {
+
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            await truffleAssert.reverts(nfyStaking.compoundRewards(1, {from: user2}));
+        });
+
+        it('should let a user who is the owner compound the rewards', async () => {
+
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            await truffleAssert.passes(nfyStaking.compoundRewards(1, {from: user}));
+        });
+
+        it('should update a user\'s stake NFT after they compound rewards', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            const nftBalanceBefore = BigInt(await nfyStaking.getNFTBalance(1));
+
+            let compound = await nfyStaking.compoundRewards(1, {from: user});
+
+            const nftBalanceAfter = BigInt(await nfyStaking.getNFTBalance(1));
+            const expectedRewards = BigInt(compound.logs[1].args._rewardsCompounded);
+
+            assert.strictEqual((nftBalanceBefore + expectedRewards).toString(), nftBalanceAfter.toString());
+        });
+
+        it('should emit proper events', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            let compound = await nfyStaking.compoundRewards(1, {from: user});
+            assert.strictEqual(2, compound.logs.length);
+            assert.strictEqual("PoolUpdated", compound.logs[0].event);
+            assert.strictEqual("RewardsCompounded", compound.logs[1].event);
+
+            assert.strictEqual(compound.logs[1].args._staker, user);
+            assert.strictEqual(compound.logs[1].args._tokenId.toNumber(), 1);
+            const nftBalanceAfter = BigInt(await nfyStaking.getNFTBalance(1));
+            assert.strictEqual((BigInt(compound.logs[1].args._totalStaked)).toString(), nftBalanceAfter.toString());
+        });
+
+     });
+
+     describe("# claimAllRewards()", () => {
+        it('should NOT let user call function if they do not have any NFY staking NFTs', async () => {
+            await truffleAssert.reverts(nfyStaking.claimAllRewards({from: user}));
+        });
+
+        it('should let user call function if they have 1 NFY staking NFTs', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await token.approve(nfyStaking.address, allowance, {from: user2});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user2}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            await truffleAssert.passes(nfyStaking.claimAllRewards({from: user}));
+        });
+
+        it('should let user call function if they have multiple NFY staking NFTs', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            await nfyStakingNFT.transferFrom(user, user2, 1, {from: user});
+
+            await truffleAssert.passes(nfyStaking.claimAllRewards({from: user2}));
+            await truffleAssert.reverts(nfyStaking.claimAllRewards({from: user}));
+        });
+
+        it('should properly update a user\'s balance if they claim the rewards for multiple NFTs', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await token.approve(nfyStaking.address, allowance, {from: user2});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user2}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            const previousRewardPerBlock = BigInt(await nfyStaking.getRewardPerBlock());
+            const user2BalanceBefore = BigInt(await token.balanceOf(user2));
+
+            await nfyStakingNFT.transferFrom(user, user2, 1, {from: user});
+            assert.strictEqual(0, (await nfyStaking.getTotalRewards(user)).toNumber());
+
+            const nft1 = BigInt(await nfyStaking.pendingRewards(2));
+            const nft2 = BigInt(await nfyStaking.pendingRewards(1));
+            const user2Rewards = BigInt(await nfyStaking.getTotalRewards(user2));
+
+            await truffleAssert.passes(nfyStaking.claimAllRewards({from: user2}));
+            await truffleAssert.reverts(nfyStaking.claimAllRewards({from: user}));
+            const user2BalanceAfter = BigInt(await token.balanceOf(user2));
+
+            assert.strictEqual((nft1 + nft2).toString(), user2Rewards.toString());
+            assert.strictEqual((user2BalanceBefore + user2Rewards + previousRewardPerBlock + BigInt(3)).toString(), user2BalanceAfter.toString());
+        });
+     });
+
+     describe("# compoundAllRewards()", () => {
+        it('should NOT let user call function if they do not have any NFY staking NFTs', async () => {
+            await truffleAssert.reverts(nfyStaking.compoundAllRewards({from: user}));
+        });
+
+        it('should let user call function if they have 1 NFY staking NFTs', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await token.approve(nfyStaking.address, allowance, {from: user2});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user2}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            await truffleAssert.passes(nfyStaking.compoundAllRewards({from: user}));
+        });
+
+        it('should let user call function if they have multiple NFY staking NFTs', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            await nfyStakingNFT.transferFrom(user, user2, 1, {from: user});
+
+            await truffleAssert.passes(nfyStaking.compoundAllRewards({from: user2}));
+            await truffleAssert.reverts(nfyStaking.compoundAllRewards({from: user}));
+        });
+
+        it('should properly update a user\'s balance if they compound the rewards for multiple NFTs', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await token.approve(nfyStaking.address, allowance, {from: user2});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user2}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            const nftBalance1Before = BigInt(await nfyStaking.getNFTBalance(1));
+            const nftBalance2Before = BigInt(await nfyStaking.getNFTBalance(2));
+
+            await nfyStakingNFT.transferFrom(user, user2, 1, {from: user});
+
+            let compound = await nfyStaking.compoundAllRewards({from: user2});
+            assert.strictEqual(3, compound.logs.length);
+            await truffleAssert.reverts(nfyStaking.compoundAllRewards({from: user}));
+
+            const nft1Rewards = BigInt(compound.logs[2].args._rewardsCompounded);
+            const nft2Rewards = BigInt(compound.logs[1].args._rewardsCompounded);
+
+            const nftBalance1After = BigInt(await nfyStaking.getNFTBalance(1));
+            const nftBalance2After = BigInt(await nfyStaking.getNFTBalance(2));
+
+            console.log(nftBalance1Before);
+            console.log(nftBalance2Before);
+            console.log(nftBalance1After);
+            console.log(nftBalance2After);
+
+            assert.strictEqual((nftBalance1Before + nft1Rewards).toString(), nftBalance1After.toString());
+            assert.strictEqual((nftBalance2Before + nft2Rewards).toString(), nftBalance2After.toString());
+        });
      });
 
      describe("# unstakeNFY()", () => {
@@ -539,10 +931,10 @@ contract("NFYStaking", async (accounts) => {
             console.log(BigInt(balanceBefore));
 
             const unstake = await (nfyStaking.unstakeNFY(tokenId, {from: user}));
-            assert.strictEqual(2, unstake.logs.length);
-            console.log(BigInt(unstake.logs[0].args._amount));
+            assert.strictEqual(3, unstake.logs.length);
+            console.log(BigInt(unstake.logs[1].args._amount));
 
-            const rewards = BigInt(unstake.logs[1].args._rewardsClaimed);
+            const rewards = BigInt(unstake.logs[2].args._rewardsClaimed);
 
             const balanceAfter = await token.balanceOf(user);
             console.log(BigInt(balanceAfter));
@@ -561,9 +953,9 @@ contract("NFYStaking", async (accounts) => {
             console.log(BigInt(balanceBefore));
 
             const unstake = await (nfyStaking.unstakeNFY(tokenId, {from: user}));
-            assert.strictEqual(2, unstake.logs.length);
-            console.log(BigInt(unstake.logs[0].args._amount));
-            const rewards = BigInt(unstake.logs[1].args._rewardsClaimed);
+            assert.strictEqual(3, unstake.logs.length);
+            console.log(BigInt(unstake.logs[1].args._amount));
+            const rewards = BigInt(unstake.logs[2].args._rewardsClaimed);
 
             const balanceAfter = await token.balanceOf(rewardPool.address);
 
@@ -660,10 +1052,10 @@ contract("NFYStaking", async (accounts) => {
             console.log(BigInt(balanceBefore));
 
             const unstake = await (nfyStaking.unstakeNFY(tokenId, {from: user2}));
-            const rewards = BigInt(unstake.logs[1].args._rewardsClaimed);
+            const rewards = BigInt(unstake.logs[2].args._rewardsClaimed);
 
-            assert.strictEqual(2, unstake.logs.length);
-            console.log(BigInt(unstake.logs[0].args._amount));
+            assert.strictEqual(3, unstake.logs.length);
+            console.log(BigInt(unstake.logs[1].args._amount));
 
             const balanceAfter = await token.balanceOf(user2);
             console.log(BigInt(balanceAfter));
@@ -714,10 +1106,10 @@ contract("NFYStaking", async (accounts) => {
             await truffleAssert.reverts(nfyStaking.unstakeNFY(tokenId, {from: user}));
             await truffleAssert.reverts(nfyStaking.unstakeNFY(tokenId, {from: user2}));
             const unstake = await(nfyStaking.unstakeNFY(tokenId, {from: user3}));
-            const rewards = BigInt(unstake.logs[1].args._rewardsClaimed);
+            const rewards = BigInt(unstake.logs[2].args._rewardsClaimed);
 
-            assert.strictEqual(2, unstake.logs.length);
-            console.log(BigInt(unstake.logs[0].args._amount));
+            assert.strictEqual(3, unstake.logs.length);
+            console.log(BigInt(unstake.logs[1].args._amount));
 
             const balanceAfter1 = await token.balanceOf(user);
             const balanceAfter2 = await token.balanceOf(user2);
@@ -750,6 +1142,159 @@ contract("NFYStaking", async (accounts) => {
             assert.strictEqual((BigInt(totalStakedBefore).toString()), ((BigInt(totalStakedAfter)) + BigInt(stakeAmount * 2)).toString());
         });
 
+     });
+
+     describe("# unstakeAll()", () => {
+        it('should NOT let user call function if they do not have any NFY staking NFTs', async () => {
+            await truffleAssert.reverts(nfyStaking.unstakeAll({from: user}));
+        });
+
+        it('should let user call function if they have 1 NFY staking NFTs', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await token.approve(nfyStaking.address, allowance, {from: user2});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user2}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            await truffleAssert.passes(nfyStaking.unstakeAll({from: user}));
+        });
+
+        it('should let user call function if they have multiple NFY staking NFTs', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            await nfyStakingNFT.transferFrom(user, user2, 1, {from: user});
+
+            /*await truffleAssert.passes(nfyStaking.unstakeAll({from: user2}));*/
+            let unstake = await nfyStaking.unstakeAll({from: user2});
+            await truffleAssert.reverts(nfyStaking.unstakeAll({from: user}));
+
+        });
+
+        it('should update balances properly when multiple NFTs are unstaked', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await token.approve(nfyStaking.address, allowance, {from: user2});
+            const stake = await nfyStaking.stakeNFY(stakeAmount, {from: user});
+            const stake2 = await nfyStaking.stakeNFY(stakeAmount, {from: user2});
+
+            const tokenId1 = stake.logs[1].args._tokenId.toNumber();
+            const tokenId2 = stake2.logs[1].args._tokenId.toNumber();
+
+            const amountStaked1 = BigInt(stake.logs[1].args._totalStaked);
+            const amountStaked2 = BigInt(stake2.logs[2].args._totalStaked);
+
+            assert.strictEqual(2, stake.logs.length);
+            assert.strictEqual(3, stake2.logs.length);
+
+            const balanceBefore = await token.balanceOf(user2);
+            truffleAssert.passes(nfyStakingNFT.transferFrom(user, user2, 1, {from: user}));
+            console.log(await nfyStakingNFT.balanceOf(user2));
+
+            let unstake = await nfyStaking.unstakeAll({from: user2});
+            await truffleAssert.reverts(nfyStaking.unstakeAll({from: user}));
+
+            assert.strictEqual(3, unstake.logs.length);
+            console.log(BigInt(unstake.logs[1].args._amount));
+            console.log(unstake.logs);
+/*            console.log(BigInt(unstake.logs[4].args._amount));
+
+            const rewards1 = BigInt(unstake.logs[2].args._rewardsClaimed);
+            const rewards2 = BigInt(unstake.logs[4].args._rewardsClaimed);
+
+            const balanceAfter = await token.balanceOf(user2);
+            console.log(BigInt(balanceAfter));
+            console.log(BigInt(balanceBefore) + (BigInt(amountStaked) / BigInt(100) * BigInt(95)));
+
+            assert.strictEqual((BigInt(balanceBefore) + rewards1 + rewards2 + (BigInt(amountStaked) / BigInt(100) * BigInt(95))).toString(), (BigInt(balanceAfter)).toString());*/
+        });
+
+     });
+
+     describe("# incrementNFTValue()", () => {
+        it('should NOT increase value of NFT if not called by owner of Contract', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+            const balanceBefore = await nfyStaking.getNFTBalance(1);
+
+            await truffleAssert.reverts(nfyStaking.incrementNFTValue(1, stakeAmount, {from: owner}));
+
+            const balanceAfter = await nfyStaking.getNFTBalance(1);
+
+            assert.strictEqual((BigInt(balanceBefore)).toString(), (BigInt(balanceAfter)).toString());
+        });
+
+        it('should NOT increase value of NFT if not called by owner of NFT', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+            const balanceBefore = await nfyStaking.getNFTBalance(1);
+
+            await truffleAssert.reverts(nfyStaking.incrementNFTValue(1, stakeAmount, {from: user}));
+
+            const balanceAfter = await nfyStaking.getNFTBalance(1);
+
+            assert.strictEqual((BigInt(balanceBefore)).toString(), (BigInt(balanceAfter)).toString());
+        });
+
+        it('should increase value of NFT if not called by platform', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+            const balanceBefore = await nfyStaking.getNFTBalance(1);
+
+            await truffleAssert.passes(nfyStaking.incrementNFTValue(1, stakeAmount, {from: testPlatform}));
+
+            const balanceAfter = await nfyStaking.getNFTBalance(1);
+
+            assert.strictEqual((BigInt(balanceBefore) + BigInt(stakeAmount)).toString(), (BigInt(balanceAfter)).toString());
+        });
+     });
+
+     describe("# decrementNFTValue()", () => {
+        it('should NOT decrease value of NFT if not called by owner of Contract', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(web3.utils.toWei('10', 'ether'), {from: user}));
+            const balanceBefore = await nfyStaking.getNFTBalance(1);
+
+            await truffleAssert.reverts(nfyStaking.decrementNFTValue(1, stakeAmount, {from: owner}));
+
+            const balanceAfter = await nfyStaking.getNFTBalance(1);
+
+            assert.strictEqual((BigInt(balanceBefore)).toString(), (BigInt(balanceAfter)).toString());
+        });
+
+        it('should NOT decrease value of NFT if not called by owner of NFT', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(web3.utils.toWei('10', 'ether'), {from: user}));
+            const balanceBefore = await nfyStaking.getNFTBalance(1);
+
+            await truffleAssert.reverts(nfyStaking.decrementNFTValue(1, stakeAmount, {from: user}));
+
+            const balanceAfter = await nfyStaking.getNFTBalance(1);
+
+            assert.strictEqual((BigInt(balanceBefore)).toString(), (BigInt(balanceAfter)).toString());
+        });
+
+        it('should decrease value of NFT if not called by platform', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(web3.utils.toWei('10', 'ether'), {from: user}));
+            const balanceBefore = await nfyStaking.getNFTBalance(1);
+
+            await truffleAssert.passes(nfyStaking.decrementNFTValue(1, stakeAmount, {from: testPlatform}));
+
+            const balanceAfter = await nfyStaking.getNFTBalance(1);
+
+            assert.strictEqual((BigInt(balanceBefore) - BigInt(stakeAmount)).toString(), (BigInt(balanceAfter)).toString());
+        });
      });
 
 

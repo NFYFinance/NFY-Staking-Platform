@@ -31,8 +31,6 @@ contract NFYStakingNFT is Ownable, ERC721 {
     
     function revertNftTokenId(address _stakeholder, uint _tokenId) external onlyPlatform() {
         require(ownerOf(_tokenId) == _stakeholder, "not owner of token");
-        //require(_msgSender() == _stakeholder, "User is not passed in address");
-        //require(nftId[_stakeholder] == _tokenId, "Can not revert a token you do not have to zero");
         nftId[_stakeholder] = 0;
 
         emit RevertCompleted(_stakeholder, _tokenId, nftId[_stakeholder], now);

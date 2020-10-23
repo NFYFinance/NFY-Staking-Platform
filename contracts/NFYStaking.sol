@@ -27,6 +27,7 @@ contract NFYStaking is Ownable {
 
     event StakeCompleted(address _staker, uint _amount, uint _tokenId, uint _totalStaked, uint _time);
     event WithdrawCompleted(address _staker, uint _amount, uint _tokenId, uint _time);
+    event PoolUpdated(uint _blocksRewarded, uint _amountRewarded, uint _time);
     event RewardsClaimed(address _staker, uint _rewardsClaimed, uint _tokenId, uint _time);
     event RewardsCompounded(address _staker, uint _rewardsCompounded, uint _tokenId, uint _totalStaked, uint _time);
     event MintedToken(address _staker, uint256 _tokenId, uint256 _time);
@@ -68,7 +69,7 @@ contract NFYStaking is Ownable {
         return NFTDetails[_tokenId]._NFYDeposited;
     }
 
-    // Function that will check if a NFY stake NFT in in circulation
+    // Function that will check if a NFY stake NFT is in circulation
     function checkIfNFTInCirculation(uint _tokenId) public view returns(bool _inCirculation) {
         return NFTDetails[_tokenId]._inCirculation;
     }
@@ -139,6 +140,8 @@ contract NFYStaking is Ownable {
 
         accNfyPerShare = accNfyPerShare.add(nfyReward.mul(1e18).div(totalStaked));
         lastRewardBlock = block.number;
+
+        emit PoolUpdated(blocksToReward, nfyReward, now);
     }
 
     // Function that lets user stake NFY
@@ -220,6 +223,7 @@ contract NFYStaking is Ownable {
 
     // Function that lets user claim all rewards from all their nfts
     function claimAllRewards() public {
+        require(StakingNFT.balanceOf(_msgSender()) > 0, "User has no stake");
         for(uint i = 0; i < StakingNFT.balanceOf(_msgSender()); i++) {
             uint _currentNFT = StakingNFT.tokenOfOwnerByIndex(_msgSender(), i);
             claimRewards(_currentNFT);
@@ -228,6 +232,7 @@ contract NFYStaking is Ownable {
 
     // Function that lets user compound all rewards from all their nfts
     function compoundAllRewards() public {
+        require(StakingNFT.balanceOf(_msgSender()) > 0, "User has no stake");
         for(uint i = 0; i < StakingNFT.balanceOf(_msgSender()); i++) {
             uint _currentNFT = StakingNFT.tokenOfOwnerByIndex(_msgSender(), i);
             compoundRewards(_currentNFT);
@@ -269,6 +274,8 @@ contract NFYStaking is Ownable {
 
     // Function that will unstake every user's NFY stake NFT
     function unstakeAll() public {
+        require(StakingNFT.balanceOf(_msgSender()) > 0, "User has no stake");
+
         for(uint i = 0; i < StakingNFT.balanceOf(_msgSender()); i++) {
             uint _currentNFT = StakingNFT.tokenOfOwnerByIndex(_msgSender(), i);
             unstakeNFY(_currentNFT);
