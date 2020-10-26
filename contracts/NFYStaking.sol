@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./Ownable.sol";
 
-interface IStakingNFT {
+interface INFYStakingNFT {
     function nftTokenId(address _stakeholder) external view returns(uint id);
     function revertNftTokenId(address _stakeholder, uint _tokenId) external;
     function ownerOf(uint256 tokenId) external view returns (address owner);
@@ -33,7 +33,7 @@ contract NFYStaking is Ownable {
     event MintedToken(address _staker, uint256 _tokenId, uint256 _time);
 
     IERC20 public NFYToken;
-    IStakingNFT public StakingNFT;
+    INFYStakingNFT public StakingNFT;
     address public rewardPool;
     address public staking;
     uint public dailyReward;
@@ -46,7 +46,7 @@ contract NFYStaking is Ownable {
     // Constructor will set the address of NFY token and address of NFY staking NFT
     constructor(address _NFYToken, address _StakingNFT, address _staking, address _rewardPool, uint _dailyReward) Ownable() public {
         NFYToken = IERC20(_NFYToken);
-        StakingNFT = IStakingNFT(_StakingNFT);
+        StakingNFT = INFYStakingNFT(_StakingNFT);
         staking = _staking;
         rewardPool = _rewardPool;
         lastRewardBlock = block.number;
@@ -54,12 +54,12 @@ contract NFYStaking is Ownable {
         accNfyPerShare = 0;
     }
 
-    // 6500 blocks in average day --- decimals * NFY balance of rewardPool / blocks / 1000 (0.1%) = rewardPerBlock
+    // 6500 blocks in average day --- decimals * NFY balance of rewardPool / blocks / 10000 * dailyReward (in hundredths of %) = rewardPerBlock
     function getRewardPerBlock() public view returns(uint) {
-        return NFYToken.balanceOf(rewardPool).div(6500).div(dailyReward);
+        return NFYToken.balanceOf(rewardPool).div(6500).div(10000).mul(dailyReward);
     }
 
-    // % of reward pool to be distributed each day. 1000 == 0.1%
+    // % of reward pool to be distributed each day --- in hundredths of % 30 == 0.3%
     function setDailyReward(uint _dailyReward) public onlyOwner {
         dailyReward = _dailyReward;
     }
@@ -111,13 +111,6 @@ contract NFYStaking is Ownable {
         }
 
         return totalBalance;
-    }
-
-    // Function that returns apy
-    function getAPY() public view returns(uint){
-        uint _rewardsPerDay = getRewardPerBlock().mul(6500);
-        uint _rewardsPerYear = _rewardsPerDay.mul(366);
-        return _rewardsPerYear.div(totalStaked).mul(1e20);
     }
 
     // Function that updates NFY pool
@@ -272,7 +265,7 @@ contract NFYStaking is Ownable {
         emit RewardsClaimed(_msgSender(), _pendingRewards, _tokenId, now);
     }
 
-    // Function that will unstake every user's NFY stake NFT
+    // Function that will unstake every user's NFY stake NFT for user
     function unstakeAll() public {
         require(StakingNFT.balanceOf(_msgSender()) > 0, "User has no stake");
 

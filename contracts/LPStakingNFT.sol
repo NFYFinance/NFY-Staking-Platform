@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./Ownable.sol";
 
-contract NFYStakingNFT is Ownable, ERC721 {
+contract LPStakingNFT is Ownable, ERC721 {
     using SafeMath for uint256;
 
     // Variable that will keep track of next NFT id

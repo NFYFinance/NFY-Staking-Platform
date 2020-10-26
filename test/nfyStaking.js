@@ -57,7 +57,7 @@ contract("NFYStaking", async (accounts) => {
         token.faucet(rewardPool.address, rewardTokens);
 
         // Funding deployment
-        nfyStaking = await NFYStaking.new(token.address, nfyStakingNFT.address, nfyStakingNFT.address, rewardPool.address, 1000);
+        nfyStaking = await NFYStaking.new(token.address, nfyStakingNFT.address, nfyStakingNFT.address, rewardPool.address, 10);
 
         // Add NFY Staking contract as a platform address
         await nfyStakingNFT.addPlatformAddress(nfyStaking.address);
@@ -99,7 +99,7 @@ contract("NFYStaking", async (accounts) => {
         });
 
         it('should set daily reward % properly', async () => {
-            assert.strictEqual('1000', (BigInt(await nfyStaking.dailyReward())).toString());
+            assert.strictEqual('10', (BigInt(await nfyStaking.dailyReward())).toString());
         });
 
      });
@@ -109,6 +109,7 @@ contract("NFYStaking", async (accounts) => {
             const rewardPoolBalance = await token.balanceOf(rewardPool.address);
             const expectedReward = rewardPoolBalance / 6500 / 1000;
             const actualReward = await nfyStaking.getRewardPerBlock();
+            console.log((BigInt(actualReward)).toString());
 
             assert.strictEqual(BigInt(expectedReward), BigInt(actualReward));
         });
@@ -118,13 +119,13 @@ contract("NFYStaking", async (accounts) => {
      describe("# setDailyReward()", () => {
 
         it('should NOT allow a non-owner to set daily reward %', async () => {
-            await truffleAssert.reverts(nfyStaking.setDailyReward(2000, {from: user}));
+            await truffleAssert.reverts(nfyStaking.setDailyReward(20, {from: user}));
         });
 
         it('should allow owner to set daily reward %', async () => {
-            assert.strictEqual('1000', (BigInt(await nfyStaking.dailyReward())).toString());
-            await truffleAssert.passes(nfyStaking.setDailyReward(2000, {from: owner}));
-            assert.strictEqual('2000', (BigInt(await nfyStaking.dailyReward())).toString());
+            assert.strictEqual('10', (BigInt(await nfyStaking.dailyReward())).toString());
+            await truffleAssert.passes(nfyStaking.setDailyReward(20, {from: owner}));
+            assert.strictEqual('20', (BigInt(await nfyStaking.dailyReward())).toString());
         });
 
      });
@@ -265,46 +266,6 @@ contract("NFYStaking", async (accounts) => {
         });
      });
 
-     describe("# getAPY()", () => {
-
-        it('should return apy properly', async () => {
-            await token.approve(nfyStaking.address, allowance, {from: user});
-            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
-
-            let rewardPerYear = (BigInt(await nfyStaking.getRewardPerBlock() * 6500 * 366));
-            let expectedAPY = (rewardPerYear / (BigInt(await nfyStaking.totalStaked())) * BigInt(1e20)).toString();
-            let actualAPY = (BigInt(await nfyStaking.getAPY())).toString();
-
-            console.log(expectedAPY);
-            console.log(actualAPY);
-
-            assert.strictEqual(expectedAPY, actualAPY);
-
-        });
-
-        it('apy should be 36500% * decimals if 60 NFY is staked staking', async () => {
-            await token.approve(nfyStaking.address, allowance, {from: user});
-            await truffleAssert.passes(nfyStaking.stakeNFY(web3.utils.toWei('60', 'ether'), {from: user}));
-            console.log(BigInt(await nfyStaking.getAPY()));
-            console.log((web3.utils.toWei('36500', 'ether')));
-
-            assert.strictEqual(web3.utils.toWei('36500', 'ether'), (BigInt(await nfyStaking.getAPY())).toString());
-        });
-
-        it('apy should be 6000% * decimals if 365 NFY is staked staking', async () => {
-            await token.approve(nfyStaking.address, allowance, {from: user});
-            await token.approve(nfyStaking.address, allowance, {from: user2});
-
-            await truffleAssert.passes(nfyStaking.stakeNFY(web3.utils.toWei('300', 'ether'), {from: user}));
-            await truffleAssert.passes(nfyStaking.stakeNFY(web3.utils.toWei('65', 'ether'), {from: user}));
-
-            console.log(BigInt(await nfyStaking.getAPY()));
-            console.log((web3.utils.toWei('6000', 'ether')));
-
-            assert.strictEqual(web3.utils.toWei('6000', 'ether'), (BigInt(await nfyStaking.getAPY())).toString());
-        });
-
-     });
 
      describe("# updatePool()", () => {
         it('should emit proper amount of blocks to reward', async () => {
@@ -804,7 +765,7 @@ contract("NFYStaking", async (accounts) => {
             const user2BalanceAfter = BigInt(await token.balanceOf(user2));
 
             assert.strictEqual((nft1 + nft2).toString(), user2Rewards.toString());
-            assert.strictEqual((user2BalanceBefore + user2Rewards + previousRewardPerBlock + BigInt(3)).toString(), user2BalanceAfter.toString());
+            assert.strictEqual((user2BalanceBefore + user2Rewards + previousRewardPerBlock).toString(), user2BalanceAfter.toString());
         });
      });
 
