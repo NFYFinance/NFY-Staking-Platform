@@ -277,12 +277,42 @@ contract NFYStaking is Ownable {
 
     // Will increment value of staking NFT when trade occurs
     function incrementNFTValue (uint _tokenId, uint _amount) external onlyPlatform() {
+        updatePool();
+
+        NFT storage nft = NFTDetails[_tokenId];
+
+        if(nft._NFYDeposited > 0) {
+            uint _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
+
+            if(_pendingRewards > 0) {
+                NFYToken.transfer(StakingNFT.ownerOf(_tokenId), _pendingRewards);
+                emit RewardsClaimed(StakingNFT.ownerOf(_tokenId), _pendingRewards, _tokenId, now);
+            }
+        }
+
         NFTDetails[_tokenId]._NFYDeposited =  NFTDetails[_tokenId]._NFYDeposited.add(_amount);
+
+        nft._rewardDebt = nft._NFYDeposited.mul(accNfyPerShare).div(1e18);
     }
 
     // Will decrement value of staking NFT when trade occurs
     function decrementNFTValue (uint _tokenId, uint _amount) external onlyPlatform() {
+        updatePool();
+
+        NFT storage nft = NFTDetails[_tokenId];
+
+        if(nft._NFYDeposited > 0) {
+            uint _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
+
+            if(_pendingRewards > 0) {
+                NFYToken.transfer(StakingNFT.ownerOf(_tokenId), _pendingRewards);
+                emit RewardsClaimed(StakingNFT.ownerOf(_tokenId), _pendingRewards, _tokenId, now);
+            }
+        }
+
         NFTDetails[_tokenId]._NFYDeposited =  NFTDetails[_tokenId]._NFYDeposited.sub(_amount);
+
+        nft._rewardDebt = nft._NFYDeposited.mul(accNfyPerShare).div(1e18);
     }
 
 }

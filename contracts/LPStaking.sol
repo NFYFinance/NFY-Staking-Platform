@@ -209,7 +209,7 @@ contract LPStaking is Ownable {
 
     // Function that lets user unstake NFY in system. 5% fee that gets redistributed back to reward pool
     function unstakeLP(uint _tokenId) public {
-        require(emergencyWithdraw == true, "emergency withdraw not on");
+        require(emergencyWithdraw == true, "Can not withdraw");
         // Require that user is owner of token id
         require(StakingNFT.ownerOf(_tokenId) == _msgSender(), "User is not owner of token");
         require(NFTDetails[_tokenId]._inCirculation == true, "Stake has already been withdrawn");
@@ -240,12 +240,43 @@ contract LPStaking is Ownable {
 
     // Will increment value of staking NFT when trade occurs
     function incrementNFTValue (uint _tokenId, uint _amount) external onlyPlatform() {
+        updatePool();
+
+        NFT storage nft = NFTDetails[_tokenId];
+
+        if(nft._LPDeposited > 0) {
+            uint _pendingRewards = nft._LPDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
+
+            if(_pendingRewards > 0) {
+                NFYToken.transfer(StakingNFT.ownerOf(_tokenId), _pendingRewards);
+                emit RewardsClaimed(StakingNFT.ownerOf(_tokenId), _pendingRewards, _tokenId, now);
+            }
+        }
+
         NFTDetails[_tokenId]._LPDeposited =  NFTDetails[_tokenId]._LPDeposited.add(_amount);
+
+        nft._rewardDebt = nft._LPDeposited.mul(accNfyPerShare).div(1e18);
+
     }
 
     // Will decrement value of staking NFT when trade occurs
     function decrementNFTValue (uint _tokenId, uint _amount) external onlyPlatform() {
+        updatePool();
+
+        NFT storage nft = NFTDetails[_tokenId];
+
+        if(nft._LPDeposited > 0) {
+            uint _pendingRewards = nft._LPDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
+
+            if(_pendingRewards > 0) {
+                NFYToken.transfer(StakingNFT.ownerOf(_tokenId), _pendingRewards);
+                emit RewardsClaimed(StakingNFT.ownerOf(_tokenId), _pendingRewards, _tokenId, now);
+            }
+        }
+
         NFTDetails[_tokenId]._LPDeposited =  NFTDetails[_tokenId]._LPDeposited.sub(_amount);
+
+        nft._rewardDebt = nft._LPDeposited.mul(accNfyPerShare).div(1e18);
     }
 
     // Function that will turn on emergency withdraws
