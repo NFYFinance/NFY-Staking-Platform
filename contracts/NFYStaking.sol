@@ -32,6 +32,8 @@ contract NFYStaking is Ownable {
     event RewardsCompounded(address _staker, uint _rewardsCompounded, uint _tokenId, uint _totalStaked, uint _time);
     event MintedToken(address _staker, uint256 _tokenId, uint256 _time);
 
+    event TotalUnstaked(uint _total);
+
     IERC20 public NFYToken;
     INFYStakingNFT public StakingNFT;
     address public rewardPool;
@@ -170,7 +172,8 @@ contract NFYStaking is Ownable {
     }
 
     function addStakeholder(address _stakeholder) private {
-      staking.call(abi.encodeWithSignature("mint(address)", _stakeholder));
+        (bool success, bytes memory data) = staking.call(abi.encodeWithSignature("mint(address)", _stakeholder));
+        require(success == true, "Mint call failed");
         NFTDetails[StakingNFT.nftTokenId(_msgSender())]._addressOfMinter = _stakeholder;
         NFTDetails[StakingNFT.nftTokenId(_msgSender())]._inCirculation = true;
     }
@@ -256,7 +259,8 @@ contract NFYStaking is Ownable {
         totalStaked = totalStaked.sub(beingWithdrawn);
         StakingNFT.revertNftTokenId(_msgSender(), _tokenId);
 
-        staking.call(abi.encodeWithSignature("burn(uint256)", _tokenId));
+        (bool success, bytes memory data) = staking.call(abi.encodeWithSignature("burn(uint256)", _tokenId));
+        require(success == true, "mint call failed");
 
         NFYToken.transfer(_msgSender(), userReceives);
         NFYToken.transfer(rewardPool, fee);
@@ -269,10 +273,11 @@ contract NFYStaking is Ownable {
     function unstakeAll() public {
         require(StakingNFT.balanceOf(_msgSender()) > 0, "User has no stake");
 
-        for(uint i = 0; i < StakingNFT.balanceOf(_msgSender()); i++) {
-            uint _currentNFT = StakingNFT.tokenOfOwnerByIndex(_msgSender(), i);
+        while(StakingNFT.balanceOf(_msgSender()) > 0) {
+            uint _currentNFT = StakingNFT.tokenOfOwnerByIndex(_msgSender(), 0);
             unstakeNFY(_currentNFT);
         }
+
     }
 
     // Will increment value of staking NFT when trade occurs

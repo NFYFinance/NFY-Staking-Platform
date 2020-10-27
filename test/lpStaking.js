@@ -998,6 +998,94 @@ contract("LPStaking", async (accounts) => {
 
      });
 
+     describe("# unstakeAll()", () => {
+        it('should NOT let user call function if they do not have any NFY/ETH LP staking NFTs', async () => {
+            await truffleAssert.passes(lpStaking.turnEmergencyWithdrawOn({from: owner}));
+            await truffleAssert.reverts(lpStaking.unstakeAll({from: user}));
+        });
+
+        it('should let user call function if they have 1 NFY/ETH LP staking NFTs', async () => {
+            await lp.approve(lpStaking.address, allowance, {from: user});
+            await lp.approve(lpStaking.address, allowance, {from: user2});
+            await truffleAssert.passes(lpStaking.stakeLP(stakeAmount, {from: user}));
+            await truffleAssert.passes(lpStaking.stakeLP(stakeAmount, {from: user2}));
+
+            await truffleAssert.passes(lpStaking.turnEmergencyWithdrawOn({from: owner}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            await truffleAssert.passes(lpStaking.unstakeAll({from: user}));
+        });
+
+        it('should let user call function if they have multiple NFY/ETH LP staking NFTs', async () => {
+            await lp.approve(lpStaking.address, allowance, {from: user});
+            await lp.approve(lpStaking.address, allowance, {from: user2});
+            await truffleAssert.passes(lpStaking.stakeLP(stakeAmount, {from: user}));
+            await truffleAssert.passes(lpStaking.stakeLP(stakeAmount, {from: user2}));
+
+            await truffleAssert.passes(lpStaking.turnEmergencyWithdrawOn({from: owner}));
+
+            let i = 0;
+            while(i < 20){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            await lpStakingNFT.transferFrom(user, user2, 1, {from: user});
+
+            let unstake = await lpStaking.unstakeAll({from: user2});
+
+            console.log(unstake.logs);
+            await truffleAssert.reverts(lpStaking.unstakeAll({from: user}));
+
+        });
+
+        it('should update balances properly when multiple NFTs are unstaked', async () => {
+            await lp.approve(lpStaking.address, allowance, {from: user});
+            await lp.approve(lpStaking.address, allowance, {from: user2});
+            const stake = await lpStaking.stakeLP(stakeAmount, {from: user});
+            const stake2 = await lpStaking.stakeLP(stakeAmount, {from: user2});
+
+            await truffleAssert.passes(lpStaking.turnEmergencyWithdrawOn({from: owner}));
+
+            const tokenId1 = stake.logs[1].args._tokenId.toNumber();
+            const tokenId2 = stake2.logs[1].args._tokenId.toNumber();
+
+            const amountStaked1 = BigInt(stake.logs[1].args._totalStaked);
+            const amountStaked2 = BigInt(stake2.logs[2].args._totalStaked);
+
+            assert.strictEqual(2, stake.logs.length);
+            assert.strictEqual(3, stake2.logs.length);
+
+            const balanceBefore = await lp.balanceOf(user2);
+            truffleAssert.passes(lpStakingNFT.transferFrom(user, user2, 1, {from: user}));
+            console.log(await lpStakingNFT.balanceOf(user2));
+
+            let unstake = await lpStaking.unstakeAll({from: user2});
+            await truffleAssert.reverts(lpStaking.unstakeAll({from: user}));
+
+            console.log(BigInt(unstake.logs[1].args._amount));
+            console.log(unstake.logs);
+
+            console.log(BigInt(unstake.logs[3].args._amount));
+
+            const rewards1 = BigInt(unstake.logs[2].args._rewardsClaimed);
+            const rewards2 = BigInt(unstake.logs[4].args._rewardsClaimed);
+
+            const balanceAfter = await lp.balanceOf(user2);
+            console.log(BigInt(balanceAfter));
+            console.log(BigInt(balanceBefore) + (BigInt(stakeAmount)));
+
+            assert.strictEqual((BigInt(balanceBefore) + (BigInt(stakeAmount)) + (BigInt(stakeAmount))).toString(), (BigInt(balanceAfter)).toString());
+            assert.strictEqual((rewards1 + rewards2).toString(), (BigInt(await token.balanceOf(user2))).toString());
+        });
+
+     });
+
      describe("# incrementNFTValue()", () => {
         it('should NOT increase value of NFT if not called by owner of Contract', async () => {
             await lp.approve(lpStaking.address, allowance, {from: user});

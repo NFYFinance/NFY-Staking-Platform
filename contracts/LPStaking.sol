@@ -174,9 +174,12 @@ contract LPStaking is Ownable {
     }
 
     function addStakeholder(address _stakeholder) private {
-      staking.call(abi.encodeWithSignature("mint(address)", _stakeholder));
+        (bool success, bytes memory data) = staking.call(abi.encodeWithSignature("mint(address)", _stakeholder));
+        require(success == true, "Mint call failed");
         NFTDetails[StakingNFT.nftTokenId(_msgSender())]._addressOfMinter = _stakeholder;
         NFTDetails[StakingNFT.nftTokenId(_msgSender())]._inCirculation = true;
+
+
     }
 
     // Function that will allow user to claim rewards
@@ -229,13 +232,25 @@ contract LPStaking is Ownable {
         totalStaked = totalStaked.sub(beingWithdrawn);
         StakingNFT.revertNftTokenId(_msgSender(), _tokenId);
 
-        staking.call(abi.encodeWithSignature("burn(uint256)", _tokenId));
+        (bool success, bytes memory data) = staking.call(abi.encodeWithSignature("burn(uint256)", _tokenId));
+        require(success == true, "burn call failed");
 
         LPToken.transfer(_msgSender(), amountStaked);
         NFYToken.transfer(_msgSender(), _pendingRewards);
 
         emit WithdrawCompleted(_msgSender(), amountStaked, _tokenId, now);
         emit RewardsClaimed(_msgSender(), _pendingRewards, _tokenId, now);
+    }
+
+    // Function that will unstake every user's NFY/ETH LP stake NFT for user
+    function unstakeAll() public {
+        require(StakingNFT.balanceOf(_msgSender()) > 0, "User has no stake");
+        uint totalToUnstake = StakingNFT.balanceOf(_msgSender());
+
+        while(StakingNFT.balanceOf(_msgSender()) > 0) {
+            uint _currentNFT = StakingNFT.tokenOfOwnerByIndex(_msgSender(), 0);
+            unstakeLP(_currentNFT);
+        }
     }
 
     // Will increment value of staking NFT when trade occurs
@@ -288,7 +303,6 @@ contract LPStaking is Ownable {
         require(emergencyWithdraw == false, "emergency withdrawing already allowed");
         emergencyWithdraw = true;
         emit EmergencyWithdrawOn(_msgSender(), emergencyWithdraw, now);
-
     }
 
 }

@@ -1126,7 +1126,9 @@ contract("NFYStaking", async (accounts) => {
 
         it('should let user call function if they have multiple NFY staking NFTs', async () => {
             await token.approve(nfyStaking.address, allowance, {from: user});
+            await token.approve(nfyStaking.address, allowance, {from: user2});
             await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user2}));
 
             let i = 0;
             while(i < 20){
@@ -1136,8 +1138,9 @@ contract("NFYStaking", async (accounts) => {
 
             await nfyStakingNFT.transferFrom(user, user2, 1, {from: user});
 
-            /*await truffleAssert.passes(nfyStaking.unstakeAll({from: user2}));*/
             let unstake = await nfyStaking.unstakeAll({from: user2});
+
+            console.log(unstake.logs);
             await truffleAssert.reverts(nfyStaking.unstakeAll({from: user}));
 
         });
@@ -1164,19 +1167,20 @@ contract("NFYStaking", async (accounts) => {
             let unstake = await nfyStaking.unstakeAll({from: user2});
             await truffleAssert.reverts(nfyStaking.unstakeAll({from: user}));
 
-            assert.strictEqual(3, unstake.logs.length);
+            //assert.strictEqual(3, unstake.logs.length);
             console.log(BigInt(unstake.logs[1].args._amount));
             console.log(unstake.logs);
-/*            console.log(BigInt(unstake.logs[4].args._amount));
+
+            console.log(BigInt(unstake.logs[3].args._amount));
 
             const rewards1 = BigInt(unstake.logs[2].args._rewardsClaimed);
             const rewards2 = BigInt(unstake.logs[4].args._rewardsClaimed);
 
             const balanceAfter = await token.balanceOf(user2);
             console.log(BigInt(balanceAfter));
-            console.log(BigInt(balanceBefore) + (BigInt(amountStaked) / BigInt(100) * BigInt(95)));
+            console.log(BigInt(balanceBefore) + (BigInt(stakeAmount) / BigInt(100) * BigInt(95)));
 
-            assert.strictEqual((BigInt(balanceBefore) + rewards1 + rewards2 + (BigInt(amountStaked) / BigInt(100) * BigInt(95))).toString(), (BigInt(balanceAfter)).toString());*/
+            assert.strictEqual((BigInt(balanceBefore) + rewards1 + rewards2 + (BigInt(stakeAmount) / BigInt(100) * BigInt(95)) + (BigInt(stakeAmount) / BigInt(100) * BigInt(95))).toString(), (BigInt(balanceAfter)).toString());
         });
 
      });

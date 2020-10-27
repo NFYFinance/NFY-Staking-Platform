@@ -91,7 +91,7 @@ contract("NFYStakingNFT", async (accounts) => {
         });
      });
 
-     describe("# nftTokenId ()", () => {
+     describe("# nftTokenId()", () => {
         it('should return 0 if stakeholder address has no NFY staking nft', async () => {
             const returnVal = await nfyStakingNFT.nftTokenId(user);
             assert.strictEqual(0, returnVal.toNumber());
