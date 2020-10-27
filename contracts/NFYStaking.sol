@@ -277,6 +277,7 @@ contract NFYStaking is Ownable {
 
     // Will increment value of staking NFT when trade occurs
     function incrementNFTValue (uint _tokenId, uint _amount) external onlyPlatform() {
+        require(checkIfNFTInCirculation(_tokenId) == true, "Token not in circulation");
         updatePool();
 
         NFT storage nft = NFTDetails[_tokenId];
@@ -297,6 +298,9 @@ contract NFYStaking is Ownable {
 
     // Will decrement value of staking NFT when trade occurs
     function decrementNFTValue (uint _tokenId, uint _amount) external onlyPlatform() {
+        require(checkIfNFTInCirculation(_tokenId) == true, "Token not in circulation");
+        require(getNFTBalance(_tokenId) >= _amount, "Not enough stake in NFT");
+
         updatePool();
 
         NFT storage nft = NFTDetails[_tokenId];

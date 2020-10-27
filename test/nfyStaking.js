@@ -266,7 +266,6 @@ contract("NFYStaking", async (accounts) => {
         });
      });
 
-
      describe("# updatePool()", () => {
         it('should emit proper amount of blocks to reward', async () => {
             await token.approve(nfyStaking.address, allowance, {from: user});
@@ -1207,7 +1206,7 @@ contract("NFYStaking", async (accounts) => {
             assert.strictEqual((BigInt(balanceBefore)).toString(), (BigInt(balanceAfter)).toString());
         });
 
-        it('should increase value of NFT if not called by platform', async () => {
+        it('should increase value of NFT if called by platform', async () => {
             await token.approve(nfyStaking.address, allowance, {from: user});
             await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
             const balanceBefore = await nfyStaking.getNFTBalance(1);
@@ -1217,6 +1216,40 @@ contract("NFYStaking", async (accounts) => {
             const balanceAfter = await nfyStaking.getNFTBalance(1);
 
             assert.strictEqual((BigInt(balanceBefore) + BigInt(stakeAmount)).toString(), (BigInt(balanceAfter)).toString());
+        });
+
+        it('should send rewards to owner when function gets called and pending rewards after should be 0', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(stakeAmount, {from: user}));
+
+            let i = 0;
+            while(i < 100){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            const userBalanceBefore = BigInt(await token.balanceOf(user));
+            const balanceBeforeNFT = await nfyStaking.getNFTBalance(1);
+            console.log(userBalanceBefore);
+
+            let increment = await nfyStaking.incrementNFTValue(1, stakeAmount, {from: testPlatform});
+
+            const userBalanceAfter = BigInt(await token.balanceOf(user));
+            const balanceAfterNFT = await nfyStaking.getNFTBalance(1);
+            const expectedRewards = BigInt(increment.logs[1].args._rewardsClaimed);
+
+            console.log(userBalanceAfter);
+            console.log(expectedRewards);
+
+            console.log(BigInt(balanceBeforeNFT));
+            console.log(BigInt(balanceAfterNFT));
+
+            console.log(BigInt(await nfyStaking.pendingRewards(1)));
+
+            assert.strictEqual((userBalanceBefore + expectedRewards).toString(), userBalanceAfter.toString());
+            assert.strictEqual((BigInt(balanceBeforeNFT) + BigInt(stakeAmount)).toString(), (BigInt(balanceAfterNFT)).toString());
+            assert.strictEqual((BigInt(await nfyStaking.pendingRewards(1))).toString(), '0');
+
         });
      });
 
@@ -1245,7 +1278,7 @@ contract("NFYStaking", async (accounts) => {
             assert.strictEqual((BigInt(balanceBefore)).toString(), (BigInt(balanceAfter)).toString());
         });
 
-        it('should decrease value of NFT if not called by platform', async () => {
+        it('should decrease value of NFT if called by platform', async () => {
             await token.approve(nfyStaking.address, allowance, {from: user});
             await truffleAssert.passes(nfyStaking.stakeNFY(web3.utils.toWei('10', 'ether'), {from: user}));
             const balanceBefore = await nfyStaking.getNFTBalance(1);
@@ -1255,6 +1288,40 @@ contract("NFYStaking", async (accounts) => {
             const balanceAfter = await nfyStaking.getNFTBalance(1);
 
             assert.strictEqual((BigInt(balanceBefore) - BigInt(stakeAmount)).toString(), (BigInt(balanceAfter)).toString());
+        });
+
+        it('should send rewards to owner when function gets called and pending rewards after should be 0', async () => {
+            await token.approve(nfyStaking.address, allowance, {from: user});
+            await truffleAssert.passes(nfyStaking.stakeNFY(web3.utils.toWei('10', 'ether'), {from: user}));
+
+            let i = 0;
+            while(i < 100){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            const userBalanceBefore = BigInt(await token.balanceOf(user));
+            const balanceBeforeNFT = await nfyStaking.getNFTBalance(1);
+            console.log(userBalanceBefore);
+
+            let decrement = await nfyStaking.decrementNFTValue(1, stakeAmount, {from: testPlatform});
+
+            const userBalanceAfter = BigInt(await token.balanceOf(user));
+            const balanceAfterNFT = await nfyStaking.getNFTBalance(1);
+            const expectedRewards = BigInt(decrement.logs[1].args._rewardsClaimed);
+
+            console.log(userBalanceAfter);
+            console.log(expectedRewards);
+
+            console.log(BigInt(balanceBeforeNFT));
+            console.log(BigInt(balanceAfterNFT));
+
+            console.log(BigInt(await nfyStaking.pendingRewards(1)));
+
+            assert.strictEqual((userBalanceBefore + expectedRewards).toString(), userBalanceAfter.toString());
+            assert.strictEqual((BigInt(balanceBeforeNFT) - BigInt(stakeAmount)).toString(), (BigInt(balanceAfterNFT)).toString());
+            assert.strictEqual((BigInt(await nfyStaking.pendingRewards(1))).toString(), '0');
+
         });
      });
 

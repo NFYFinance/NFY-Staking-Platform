@@ -1023,7 +1023,7 @@ contract("LPStaking", async (accounts) => {
             assert.strictEqual((BigInt(balanceBefore)).toString(), (BigInt(balanceAfter)).toString());
         });
 
-        it('should increase value of NFT if not called by platform', async () => {
+        it('should increase value of NFT if called by platform', async () => {
             await lp.approve(lpStaking.address, allowance, {from: user});
             await truffleAssert.passes(lpStaking.stakeLP(stakeAmount, {from: user}));
             const balanceBefore = await lpStaking.getNFTBalance(1);
@@ -1033,6 +1033,40 @@ contract("LPStaking", async (accounts) => {
             const balanceAfter = await lpStaking.getNFTBalance(1);
 
             assert.strictEqual((BigInt(balanceBefore) + BigInt(stakeAmount)).toString(), (BigInt(balanceAfter)).toString());
+        });
+
+        it('should send rewards to owner when function gets called and pending rewards after should be 0', async () => {
+            await lp.approve(lpStaking.address, allowance, {from: user});
+            await truffleAssert.passes(lpStaking.stakeLP(stakeAmount, {from: user}));
+
+            let i = 0;
+            while(i < 100){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            const userBalanceBefore = BigInt(await token.balanceOf(user));
+            const balanceBeforeLP = await lpStaking.getNFTBalance(1);
+            console.log(userBalanceBefore);
+
+            let increment = await lpStaking.incrementNFTValue(1, stakeAmount, {from: testPlatform});
+
+            const userBalanceAfter = BigInt(await token.balanceOf(user));
+            const balanceAfterLP = await lpStaking.getNFTBalance(1);
+            const expectedRewards = BigInt(increment.logs[1].args._rewardsClaimed);
+
+            console.log(userBalanceAfter);
+            console.log(expectedRewards);
+
+            console.log(BigInt(balanceBeforeLP));
+            console.log(BigInt(balanceAfterLP));
+
+            console.log(BigInt(await lpStaking.pendingRewards(1)));
+
+            assert.strictEqual((userBalanceBefore + expectedRewards).toString(), userBalanceAfter.toString());
+            assert.strictEqual((BigInt(balanceBeforeLP) + BigInt(stakeAmount)).toString(), (BigInt(balanceAfterLP)).toString());
+            assert.strictEqual((BigInt(await lpStaking.pendingRewards(1))).toString(), '0');
+
         });
      });
 
@@ -1061,7 +1095,7 @@ contract("LPStaking", async (accounts) => {
             assert.strictEqual((BigInt(balanceBefore)).toString(), (BigInt(balanceAfter)).toString());
         });
 
-        it('should decrease value of NFT if not called by platform', async () => {
+        it('should decrease value of NFT if called by platform', async () => {
             await lp.approve(lpStaking.address, allowance, {from: user});
             await truffleAssert.passes(lpStaking.stakeLP(web3.utils.toWei('10', 'ether'), {from: user}));
             const balanceBefore = await lpStaking.getNFTBalance(1);
@@ -1071,6 +1105,40 @@ contract("LPStaking", async (accounts) => {
             const balanceAfter = await lpStaking.getNFTBalance(1);
 
             assert.strictEqual((BigInt(balanceBefore) - BigInt(stakeAmount)).toString(), (BigInt(balanceAfter)).toString());
+        });
+
+        it('should send rewards to owner when function gets called and pending rewards after should be 0', async () => {
+            await lp.approve(lpStaking.address, allowance, {from: user});
+            await truffleAssert.passes(lpStaking.stakeLP(web3.utils.toWei('10', 'ether'), {from: user}));
+
+            let i = 0;
+            while(i < 100){
+            await helper.advanceBlock();
+            i++;
+            }
+
+            const userBalanceBefore = BigInt(await token.balanceOf(user));
+            const balanceBeforeLP = await lpStaking.getNFTBalance(1);
+            console.log(userBalanceBefore);
+
+            let decrement = await lpStaking.decrementNFTValue(1, stakeAmount, {from: testPlatform});
+
+            const userBalanceAfter = BigInt(await token.balanceOf(user));
+            const balanceAfterLP = await lpStaking.getNFTBalance(1);
+            const expectedRewards = BigInt(decrement.logs[1].args._rewardsClaimed);
+
+            console.log(userBalanceAfter);
+            console.log(expectedRewards);
+
+            console.log(BigInt(balanceBeforeLP));
+            console.log(BigInt(balanceAfterLP));
+
+            console.log(BigInt(await lpStaking.pendingRewards(1)));
+
+            assert.strictEqual((userBalanceBefore + expectedRewards).toString(), userBalanceAfter.toString());
+            assert.strictEqual((BigInt(balanceBeforeLP) - BigInt(stakeAmount)).toString(), (BigInt(balanceAfterLP)).toString());
+            assert.strictEqual((BigInt(await lpStaking.pendingRewards(1))).toString(), '0');
+
         });
      });
 
