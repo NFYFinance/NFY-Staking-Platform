@@ -107,7 +107,7 @@ contract("NFYStaking", async (accounts) => {
      describe("# getRewardPerBlock()", () => {
         it('should calculate reward per block properly', async () => {
             const rewardPoolBalance = await token.balanceOf(rewardPool.address);
-            const expectedReward = rewardPoolBalance / 6500 / 1000;
+            const expectedReward = rewardPoolBalance / 6500 / 10000 * 10;
             const actualReward = await nfyStaking.getRewardPerBlock();
             console.log((BigInt(actualReward)).toString());
 
@@ -557,6 +557,29 @@ contract("NFYStaking", async (accounts) => {
             assert.strictEqual((BigInt(totalStakedBefore) + BigInt(stakeAmount * 2)).toString(), (BigInt(totalStakedAfter)).toString());
         });
 
+     });
+
+     describe("#addStakeholderExternal()", () => {
+        it('should NOT let a user add a stake holder', async () => {
+            await truffleAssert.reverts(nfyStaking.addStakeholderExternal(user2, {from: user}));
+        });
+
+        it('should NOT let owner add a stake holder', async () => {
+            await truffleAssert.reverts(nfyStaking.addStakeholderExternal(user2, {from: owner}));
+        });
+
+        it('should let platform add a stake holder', async () => {
+            await truffleAssert.passes(nfyStaking.addStakeholderExternal(user2, {from: testPlatform}));
+        });
+
+        it('should add stakeholder properly', async () => {
+            const transaction = await nfyStaking.addStakeholderExternal(user, {from: testPlatform});
+
+            assert.strictEqual("MintedToken", transaction.logs[0].event);
+            assert.strictEqual(user, transaction.logs[0].args._staker);
+            assert.strictEqual(1, transaction.logs[0].args._tokenId.toNumber());
+            assert.strictEqual(1, transaction.logs.length);
+        });
      });
 
      describe("# claimRewards()", () => {

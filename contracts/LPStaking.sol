@@ -178,8 +178,13 @@ contract LPStaking is Ownable {
         require(success == true, "Mint call failed");
         NFTDetails[StakingNFT.nftTokenId(_msgSender())]._addressOfMinter = _stakeholder;
         NFTDetails[StakingNFT.nftTokenId(_msgSender())]._inCirculation = true;
+    }
 
-
+    function addStakeholderExternal(address _stakeholder) external onlyPlatform() {
+        (bool success, bytes memory data) = staking.call(abi.encodeWithSignature("mint(address)", _stakeholder));
+        require(success == true, "Mint call failed");
+        NFTDetails[StakingNFT.nftTokenId(_msgSender())]._addressOfMinter = _stakeholder;
+        NFTDetails[StakingNFT.nftTokenId(_msgSender())]._inCirculation = true;
     }
 
     // Function that will allow user to claim rewards
