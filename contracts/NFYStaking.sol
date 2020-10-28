@@ -17,7 +17,6 @@ interface INFYStakingNFT {
 contract NFYStaking is Ownable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
-
     struct NFT {
         address _addressOfMinter;
         uint _NFYDeposited;

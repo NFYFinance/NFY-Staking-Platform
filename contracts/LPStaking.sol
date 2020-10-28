@@ -244,8 +244,7 @@ contract LPStaking is Ownable {
 
     // Function that will unstake every user's NFY/ETH LP stake NFT for user
     function unstakeAll() public {
-        require(StakingNFT.balanceOf(_msgSender()) > 0, "User has no stake");
-        uint totalToUnstake = StakingNFT.balanceOf(_msgSender());
+        require(StakingNFT.balanceOf(_msgSender()) > 0, "User has no stake");        
 
         while(StakingNFT.balanceOf(_msgSender()) > 0) {
             uint _currentNFT = StakingNFT.tokenOfOwnerByIndex(_msgSender(), 0);
