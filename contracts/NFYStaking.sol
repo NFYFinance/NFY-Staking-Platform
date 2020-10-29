@@ -7,8 +7,8 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./Ownable.sol";
 
 interface INFYStakingNFT {
-    function nftTokenId(address _stakeholder) external view returns(uint id);
-    function revertNftTokenId(address _stakeholder, uint _tokenId) external;
+    function nftTokenId(address _stakeholder) external view returns(uint256 id);
+    function revertNftTokenId(address _stakeholder, uint256 _tokenId) external;
     function ownerOf(uint256 tokenId) external view returns (address owner);
     function balanceOf(address owner) external view returns (uint256 balance);
     function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256);
@@ -19,33 +19,33 @@ contract NFYStaking is Ownable {
     using SafeERC20 for IERC20;
     struct NFT {
         address _addressOfMinter;
-        uint _NFYDeposited;
+        uint256 _NFYDeposited;
         bool _inCirculation;
-        uint _rewardDebt;
+        uint256 _rewardDebt;
     }
 
-    event StakeCompleted(address _staker, uint _amount, uint _tokenId, uint _totalStaked, uint _time);
-    event WithdrawCompleted(address _staker, uint _amount, uint _tokenId, uint _time);
-    event PoolUpdated(uint _blocksRewarded, uint _amountRewarded, uint _time);
-    event RewardsClaimed(address _staker, uint _rewardsClaimed, uint _tokenId, uint _time);
-    event RewardsCompounded(address _staker, uint _rewardsCompounded, uint _tokenId, uint _totalStaked, uint _time);
+    event StakeCompleted(address _staker, uint256 _amount, uint256 _tokenId, uint256 _totalStaked, uint256 _time);
+    event WithdrawCompleted(address _staker, uint256 _amount, uint256 _tokenId, uint256 _time);
+    event PoolUpdated(uint256 _blocksRewarded, uint256 _amountRewarded, uint256 _time);
+    event RewardsClaimed(address _staker, uint256 _rewardsClaimed, uint256 _tokenId, uint256 _time);
+    event RewardsCompounded(address _staker, uint256 _rewardsCompounded, uint256 _tokenId, uint256 _totalStaked, uint256 _time);
     event MintedToken(address _staker, uint256 _tokenId, uint256 _time);
 
-    event TotalUnstaked(uint _total);
+    event TotalUnstaked(uint256 _total);
 
     IERC20 public NFYToken;
     INFYStakingNFT public StakingNFT;
     address public rewardPool;
     address public staking;
-    uint public dailyReward;
-    uint public accNfyPerShare;
-    uint public lastRewardBlock;
-    uint public totalStaked;
+    uint256 public dailyReward;
+    uint256 public accNfyPerShare;
+    uint256 public lastRewardBlock;
+    uint256 public totalStaked;
 
-    mapping(uint => NFT) public NFTDetails;
+    mapping(uint256 => NFT) public NFTDetails;
 
     // Constructor will set the address of NFY token and address of NFY staking NFT
-    constructor(address _NFYToken, address _StakingNFT, address _staking, address _rewardPool, uint _dailyReward) Ownable() public {
+    constructor(address _NFYToken, address _StakingNFT, address _staking, address _rewardPool, uint256 _dailyReward) Ownable() public {
         NFYToken = IERC20(_NFYToken);
         StakingNFT = INFYStakingNFT(_StakingNFT);
         staking = _staking;
@@ -56,27 +56,27 @@ contract NFYStaking is Ownable {
     }
 
     // 6500 blocks in average day --- decimals * NFY balance of rewardPool / blocks / 10000 * dailyReward (in hundredths of %) = rewardPerBlock
-    function getRewardPerBlock() public view returns(uint) {
+    function getRewardPerBlock() public view returns(uint256) {
         return NFYToken.balanceOf(rewardPool).div(6500).div(10000).mul(dailyReward);
     }
 
     // % of reward pool to be distributed each day --- in hundredths of % 30 == 0.3%
-    function setDailyReward(uint _dailyReward) public onlyOwner {
+    function setDailyReward(uint256 _dailyReward) public onlyOwner {
         dailyReward = _dailyReward;
     }
 
     // Function that will get balance of a NFY balance of a certain stake
-    function getNFTBalance(uint _tokenId) public view returns(uint _amountStaked) {
+    function getNFTBalance(uint256 _tokenId) public view returns(uint256 _amountStaked) {
         return NFTDetails[_tokenId]._NFYDeposited;
     }
 
     // Function that will check if a NFY stake NFT is in circulation
-    function checkIfNFTInCirculation(uint _tokenId) public view returns(bool _inCirculation) {
+    function checkIfNFTInCirculation(uint256 _tokenId) public view returns(bool _inCirculation) {
         return NFTDetails[_tokenId]._inCirculation;
     }
 
     // Function that returns NFT's pending rewards
-    function pendingRewards(uint _NFT) public view returns(uint) {
+    function pendingRewards(uint256 _NFT) public view returns(uint256) {
         NFT storage nft = NFTDetails[_NFT];
 
         uint256 _accNfyPerShare = accNfyPerShare;
@@ -91,11 +91,11 @@ contract NFYStaking is Ownable {
     }
 
     // Get total rewards for all of user's NFY nfts
-    function getTotalRewards(address _address) public view returns(uint) {
-        uint totalRewards;
+    function getTotalRewards(address _address) public view returns(uint256) {
+        uint256 totalRewards;
 
-        for(uint i = 0; i < StakingNFT.balanceOf(_address); i++) {
-            uint _rewardPerNFT = pendingRewards(StakingNFT.tokenOfOwnerByIndex(_address, i));
+        for(uint256 i = 0; i < StakingNFT.balanceOf(_address); i++) {
+            uint256 _rewardPerNFT = pendingRewards(StakingNFT.tokenOfOwnerByIndex(_address, i));
             totalRewards = totalRewards.add(_rewardPerNFT);
         }
 
@@ -103,11 +103,11 @@ contract NFYStaking is Ownable {
     }
 
     // Get total stake for all user's NFY nfts
-    function getTotalBalance(address _address) public view returns(uint) {
-        uint totalBalance;
+    function getTotalBalance(address _address) public view returns(uint256) {
+        uint256 totalBalance;
 
-        for(uint i = 0; i < StakingNFT.balanceOf(_address); i++) {
-            uint _balancePerNFT = getNFTBalance(StakingNFT.tokenOfOwnerByIndex(_address, i));
+        for(uint256 i = 0; i < StakingNFT.balanceOf(_address); i++) {
+            uint256 _balancePerNFT = getNFTBalance(StakingNFT.tokenOfOwnerByIndex(_address, i));
             totalBalance = totalBalance.add(_balancePerNFT);
         }
 
@@ -139,7 +139,7 @@ contract NFYStaking is Ownable {
     }
 
     // Function that lets user stake NFY
-    function stakeNFY(uint _amount) public {
+    function stakeNFY(uint256 _amount) public {
         require(_amount > 0, "Can not stake 0 NFY");
         require(NFYToken.balanceOf(_msgSender()) >= _amount, "Do not have enough NFY to stake");
 
@@ -152,7 +152,7 @@ contract NFYStaking is Ownable {
         NFT storage nft = NFTDetails[StakingNFT.nftTokenId(_msgSender())];
 
         if(nft._NFYDeposited > 0) {
-            uint _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
+            uint256 _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
 
             if(_pendingRewards > 0) {
                 NFYToken.transfer(_msgSender(), _pendingRewards);
@@ -185,7 +185,7 @@ contract NFYStaking is Ownable {
     }
 
     // Function that will allow user to claim rewards
-    function claimRewards(uint _tokenId) public {
+    function claimRewards(uint256 _tokenId) public {
         require(StakingNFT.ownerOf(_tokenId) == _msgSender(), "User is not owner of token");
         require(NFTDetails[_tokenId]._inCirculation == true, "Stake has already been withdrawn");
 
@@ -193,7 +193,7 @@ contract NFYStaking is Ownable {
 
         NFT storage nft = NFTDetails[_tokenId];
 
-        uint _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
+        uint256 _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
         require(_pendingRewards > 0, "No rewards to claim!");
 
         NFYToken.transfer(_msgSender(), _pendingRewards);
@@ -204,7 +204,7 @@ contract NFYStaking is Ownable {
     }
 
     // Function that will add NFY rewards to NFY staking NFT
-    function compoundRewards(uint _tokenId) public {
+    function compoundRewards(uint256 _tokenId) public {
         require(StakingNFT.ownerOf(_tokenId) == _msgSender(), "User is not owner of token");
         require(NFTDetails[_tokenId]._inCirculation == true, "Stake has already been withdrawn");
 
@@ -212,7 +212,7 @@ contract NFYStaking is Ownable {
 
         NFT storage nft = NFTDetails[_tokenId];
 
-        uint _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
+        uint256 _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
         require(_pendingRewards > 0, "No rewards to compound!");
 
         nft._NFYDeposited = nft._NFYDeposited.add(_pendingRewards);
@@ -226,8 +226,8 @@ contract NFYStaking is Ownable {
     // Function that lets user claim all rewards from all their nfts
     function claimAllRewards() public {
         require(StakingNFT.balanceOf(_msgSender()) > 0, "User has no stake");
-        for(uint i = 0; i < StakingNFT.balanceOf(_msgSender()); i++) {
-            uint _currentNFT = StakingNFT.tokenOfOwnerByIndex(_msgSender(), i);
+        for(uint256 i = 0; i < StakingNFT.balanceOf(_msgSender()); i++) {
+            uint256 _currentNFT = StakingNFT.tokenOfOwnerByIndex(_msgSender(), i);
             claimRewards(_currentNFT);
         }
     }
@@ -235,14 +235,14 @@ contract NFYStaking is Ownable {
     // Function that lets user compound all rewards from all their nfts
     function compoundAllRewards() public {
         require(StakingNFT.balanceOf(_msgSender()) > 0, "User has no stake");
-        for(uint i = 0; i < StakingNFT.balanceOf(_msgSender()); i++) {
-            uint _currentNFT = StakingNFT.tokenOfOwnerByIndex(_msgSender(), i);
+        for(uint256 i = 0; i < StakingNFT.balanceOf(_msgSender()); i++) {
+            uint256 _currentNFT = StakingNFT.tokenOfOwnerByIndex(_msgSender(), i);
             compoundRewards(_currentNFT);
         }
     }
 
     // Function that lets user unstake NFY in system. 5% fee that gets redistributed back to reward pool
-    function unstakeNFY(uint _tokenId) public {
+    function unstakeNFY(uint256 _tokenId) public {
         // Require that user is owner of token id
         require(StakingNFT.ownerOf(_tokenId) == _msgSender(), "User is not owner of token");
         require(NFTDetails[_tokenId]._inCirculation == true, "Stake has already been withdrawn");
@@ -251,15 +251,15 @@ contract NFYStaking is Ownable {
 
         NFT storage nft = NFTDetails[_tokenId];
 
-        uint _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
+        uint256 _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
 
-        uint amountStaked = getNFTBalance(_tokenId);
-        uint stakeAfterFees = amountStaked.div(100).mul(95);
-        uint userReceives = amountStaked.div(100).mul(95).add(_pendingRewards);
+        uint256 amountStaked = getNFTBalance(_tokenId);
+        uint256 stakeAfterFees = amountStaked.div(100).mul(95);
+        uint256 userReceives = amountStaked.div(100).mul(95).add(_pendingRewards);
 
-        uint fee = amountStaked.div(100).mul(5);
+        uint256 fee = amountStaked.div(100).mul(5);
 
-        uint beingWithdrawn = nft._NFYDeposited;
+        uint256 beingWithdrawn = nft._NFYDeposited;
         nft._NFYDeposited = 0;
         nft._inCirculation = false;
         totalStaked = totalStaked.sub(beingWithdrawn);
@@ -280,21 +280,21 @@ contract NFYStaking is Ownable {
         require(StakingNFT.balanceOf(_msgSender()) > 0, "User has no stake");
 
         while(StakingNFT.balanceOf(_msgSender()) > 0) {
-            uint _currentNFT = StakingNFT.tokenOfOwnerByIndex(_msgSender(), 0);
+            uint256 _currentNFT = StakingNFT.tokenOfOwnerByIndex(_msgSender(), 0);
             unstakeNFY(_currentNFT);
         }
 
     }
 
     // Will increment value of staking NFT when trade occurs
-    function incrementNFTValue (uint _tokenId, uint _amount) external onlyPlatform() {
+    function incrementNFTValue (uint256 _tokenId, uint256 _amount) external onlyPlatform() {
         require(checkIfNFTInCirculation(_tokenId) == true, "Token not in circulation");
         updatePool();
 
         NFT storage nft = NFTDetails[_tokenId];
 
         if(nft._NFYDeposited > 0) {
-            uint _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
+            uint256 _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
 
             if(_pendingRewards > 0) {
                 NFYToken.transfer(StakingNFT.ownerOf(_tokenId), _pendingRewards);
@@ -308,7 +308,7 @@ contract NFYStaking is Ownable {
     }
 
     // Will decrement value of staking NFT when trade occurs
-    function decrementNFTValue (uint _tokenId, uint _amount) external onlyPlatform() {
+    function decrementNFTValue (uint256 _tokenId, uint256 _amount) external onlyPlatform() {
         require(checkIfNFTInCirculation(_tokenId) == true, "Token not in circulation");
         require(getNFTBalance(_tokenId) >= _amount, "Not enough stake in NFT");
 
@@ -317,7 +317,7 @@ contract NFYStaking is Ownable {
         NFT storage nft = NFTDetails[_tokenId];
 
         if(nft._NFYDeposited > 0) {
-            uint _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
+            uint256 _pendingRewards = nft._NFYDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
 
             if(_pendingRewards > 0) {
                 NFYToken.transfer(StakingNFT.ownerOf(_tokenId), _pendingRewards);

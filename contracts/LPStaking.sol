@@ -7,8 +7,8 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./Ownable.sol";
 
 interface ILPStakingNFT {
-    function nftTokenId(address _stakeholder) external view returns(uint id);
-    function revertNftTokenId(address _stakeholder, uint _tokenId) external;
+    function nftTokenId(address _stakeholder) external view returns(uint256 id);
+    function revertNftTokenId(address _stakeholder, uint256 _tokenId) external;
     function ownerOf(uint256 tokenId) external view returns (address owner);
     function balanceOf(address owner) external view returns (uint256 balance);
     function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256);
@@ -20,34 +20,34 @@ contract LPStaking is Ownable {
 
     struct NFT {
         address _addressOfMinter;
-        uint _LPDeposited;
+        uint256 _LPDeposited;
         bool _inCirculation;
-        uint _rewardDebt;
+        uint256 _rewardDebt;
     }
 
-    event StakeCompleted(address _staker, uint _amount, uint _tokenId, uint _totalStaked, uint _time);
-    event PoolUpdated(uint _blocksRewarded, uint _amountRewarded, uint _time);
-    event RewardsClaimed(address _staker, uint _rewardsClaimed, uint _tokenId, uint _time);
+    event StakeCompleted(address _staker, uint256 _amount, uint256 _tokenId, uint256 _totalStaked, uint256 _time);
+    event PoolUpdated(uint256 _blocksRewarded, uint256 _amountRewarded, uint256 _time);
+    event RewardsClaimed(address _staker, uint256 _rewardsClaimed, uint256 _tokenId, uint256 _time);
     event MintedToken(address _staker, uint256 _tokenId, uint256 _time);
-    event EmergencyWithdrawOn(address _caller, bool _emergencyWithdraw, uint _time);
-    event WithdrawCompleted(address _staker, uint _amount, uint _tokenId, uint _time);
+    event EmergencyWithdrawOn(address _caller, bool _emergencyWithdraw, uint256 _time);
+    event WithdrawCompleted(address _staker, uint256 _amount, uint256 _tokenId, uint256 _time);
 
     IERC20 public LPToken;
     IERC20 public NFYToken;
     ILPStakingNFT public StakingNFT;
     address public rewardPool;
     address public staking;
-    uint public dailyReward;
-    uint public accNfyPerShare;
-    uint public lastRewardBlock;
-    uint public totalStaked;
+    uint256 public dailyReward;
+    uint256 public accNfyPerShare;
+    uint256 public lastRewardBlock;
+    uint256 public totalStaked;
 
     bool public emergencyWithdraw = false;
 
-    mapping(uint => NFT) public NFTDetails;
+    mapping(uint256 => NFT) public NFTDetails;
 
     // Constructor will set the address of NFY/ETH LP token and address of NFY/ETH LP token staking NFT
-    constructor(address _LPToken, address _NFYToken, address _StakingNFT, address _staking, address _rewardPool, uint _dailyReward) Ownable() public {
+    constructor(address _LPToken, address _NFYToken, address _StakingNFT, address _staking, address _rewardPool, uint256 _dailyReward) Ownable() public {
         LPToken = IERC20(_LPToken);
         NFYToken = IERC20(_NFYToken);
         StakingNFT = ILPStakingNFT(_StakingNFT);
@@ -59,27 +59,27 @@ contract LPStaking is Ownable {
     }
 
     // 6500 blocks in average day --- decimals * NFY balance of rewardPool / blocks / 10000 * dailyReward (in hundredths of %) = rewardPerBlock
-    function getRewardPerBlock() public view returns(uint) {
+    function getRewardPerBlock() public view returns(uint256) {
         return NFYToken.balanceOf(rewardPool).div(6500).div(10000).mul(dailyReward);
     }
 
     // % of reward pool to be distributed each day --- in hundredths of % 30 == 0.3%
-    function setDailyReward(uint _dailyReward) public onlyOwner {
+    function setDailyReward(uint256 _dailyReward) public onlyOwner {
         dailyReward = _dailyReward;
     }
 
     // Function that will get balance of a NFY balance of a certain stake
-    function getNFTBalance(uint _tokenId) public view returns(uint _amountStaked) {
+    function getNFTBalance(uint256 _tokenId) public view returns(uint256 _amountStaked) {
         return NFTDetails[_tokenId]._LPDeposited;
     }
 
     // Function that will check if a NFY/ETH LP stake NFT is in circulation
-    function checkIfNFTInCirculation(uint _tokenId) public view returns(bool _inCirculation) {
+    function checkIfNFTInCirculation(uint256 _tokenId) public view returns(bool _inCirculation) {
         return NFTDetails[_tokenId]._inCirculation;
     }
 
     // Function that returns NFT's pending rewards
-    function pendingRewards(uint _NFT) public view returns(uint) {
+    function pendingRewards(uint256 _NFT) public view returns(uint256) {
         NFT storage nft = NFTDetails[_NFT];
 
         uint256 _accNfyPerShare = accNfyPerShare;
@@ -94,11 +94,11 @@ contract LPStaking is Ownable {
     }
 
     // Get total rewards for all of user's NFY/ETH LP nfts
-    function getTotalRewards(address _address) public view returns(uint) {
-        uint totalRewards;
+    function getTotalRewards(address _address) public view returns(uint256) {
+        uint256 totalRewards;
 
-        for(uint i = 0; i < StakingNFT.balanceOf(_address); i++) {
-            uint _rewardPerNFT = pendingRewards(StakingNFT.tokenOfOwnerByIndex(_address, i));
+        for(uint256 i = 0; i < StakingNFT.balanceOf(_address); i++) {
+            uint256 _rewardPerNFT = pendingRewards(StakingNFT.tokenOfOwnerByIndex(_address, i));
             totalRewards = totalRewards.add(_rewardPerNFT);
         }
 
@@ -106,11 +106,11 @@ contract LPStaking is Ownable {
     }
 
     // Get total stake for all user's NFY/ETH LP nfts
-    function getTotalBalance(address _address) public view returns(uint) {
-        uint totalBalance;
+    function getTotalBalance(address _address) public view returns(uint256) {
+        uint256 totalBalance;
 
-        for(uint i = 0; i < StakingNFT.balanceOf(_address); i++) {
-            uint _balancePerNFT = getNFTBalance(StakingNFT.tokenOfOwnerByIndex(_address, i));
+        for(uint256 i = 0; i < StakingNFT.balanceOf(_address); i++) {
+            uint256 _balancePerNFT = getNFTBalance(StakingNFT.tokenOfOwnerByIndex(_address, i));
             totalBalance = totalBalance.add(_balancePerNFT);
         }
 
@@ -132,7 +132,6 @@ contract LPStaking is Ownable {
 
         uint256 nfyReward = blocksToReward.mul(getRewardPerBlock());
 
-        //Approve nfyReward here
         NFYToken.transferFrom(rewardPool, address(this), nfyReward);
 
         accNfyPerShare = accNfyPerShare.add(nfyReward.mul(1e18).div(totalStaked));
@@ -142,7 +141,7 @@ contract LPStaking is Ownable {
     }
 
     // Function that lets user stake NFY
-    function stakeLP(uint _amount) public {
+    function stakeLP(uint256 _amount) public {
         require(emergencyWithdraw == false, "emergency withdraw is on, cannot stake");
         require(_amount > 0, "Can not stake 0 LP tokens");
         require(LPToken.balanceOf(_msgSender()) >= _amount, "Do not have enough LP tokens to stake");
@@ -156,7 +155,7 @@ contract LPStaking is Ownable {
         NFT storage nft = NFTDetails[StakingNFT.nftTokenId(_msgSender())];
 
         if(nft._LPDeposited > 0) {
-            uint _pendingRewards = nft._LPDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
+            uint256 _pendingRewards = nft._LPDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
 
             if(_pendingRewards > 0) {
                 NFYToken.transfer(_msgSender(), _pendingRewards);
@@ -188,7 +187,7 @@ contract LPStaking is Ownable {
     }
 
     // Function that will allow user to claim rewards
-    function claimRewards(uint _tokenId) public {
+    function claimRewards(uint256 _tokenId) public {
         require(StakingNFT.ownerOf(_tokenId) == _msgSender(), "User is not owner of token");
         require(NFTDetails[_tokenId]._inCirculation == true, "Stake has already been withdrawn");
 
@@ -196,7 +195,7 @@ contract LPStaking is Ownable {
 
         NFT storage nft = NFTDetails[_tokenId];
 
-        uint _pendingRewards = nft._LPDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
+        uint256 _pendingRewards = nft._LPDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
         require(_pendingRewards > 0, "No rewards to claim!");
 
         NFYToken.transfer(_msgSender(), _pendingRewards);
@@ -209,14 +208,14 @@ contract LPStaking is Ownable {
     // Function that lets user claim all rewards from all their nfts
     function claimAllRewards() public {
         require(StakingNFT.balanceOf(_msgSender()) > 0, "User has no stake");
-        for(uint i = 0; i < StakingNFT.balanceOf(_msgSender()); i++) {
-            uint _currentNFT = StakingNFT.tokenOfOwnerByIndex(_msgSender(), i);
+        for(uint256 i = 0; i < StakingNFT.balanceOf(_msgSender()); i++) {
+            uint256 _currentNFT = StakingNFT.tokenOfOwnerByIndex(_msgSender(), i);
             claimRewards(_currentNFT);
         }
     }
 
     // Function that lets user unstake NFY in system. 5% fee that gets redistributed back to reward pool
-    function unstakeLP(uint _tokenId) public {
+    function unstakeLP(uint256 _tokenId) public {
         require(emergencyWithdraw == true, "Can not withdraw");
         // Require that user is owner of token id
         require(StakingNFT.ownerOf(_tokenId) == _msgSender(), "User is not owner of token");
@@ -226,10 +225,10 @@ contract LPStaking is Ownable {
 
         NFT storage nft = NFTDetails[_tokenId];
 
-        uint _pendingRewards = nft._LPDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
+        uint256 _pendingRewards = nft._LPDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
 
-        uint amountStaked = getNFTBalance(_tokenId);
-        uint beingWithdrawn = nft._LPDeposited;
+        uint256 amountStaked = getNFTBalance(_tokenId);
+        uint256 beingWithdrawn = nft._LPDeposited;
 
         nft._LPDeposited = 0;
         nft._inCirculation = false;
@@ -252,20 +251,20 @@ contract LPStaking is Ownable {
         require(StakingNFT.balanceOf(_msgSender()) > 0, "User has no stake");        
 
         while(StakingNFT.balanceOf(_msgSender()) > 0) {
-            uint _currentNFT = StakingNFT.tokenOfOwnerByIndex(_msgSender(), 0);
+            uint256 _currentNFT = StakingNFT.tokenOfOwnerByIndex(_msgSender(), 0);
             unstakeLP(_currentNFT);
         }
     }
 
     // Will increment value of staking NFT when trade occurs
-    function incrementNFTValue (uint _tokenId, uint _amount) external onlyPlatform() {
+    function incrementNFTValue (uint256 _tokenId, uint256 _amount) external onlyPlatform() {
         require(checkIfNFTInCirculation(_tokenId) == true, "Token not in circulation");
         updatePool();
 
         NFT storage nft = NFTDetails[_tokenId];
 
         if(nft._LPDeposited > 0) {
-            uint _pendingRewards = nft._LPDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
+            uint256 _pendingRewards = nft._LPDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
 
             if(_pendingRewards > 0) {
                 NFYToken.transfer(StakingNFT.ownerOf(_tokenId), _pendingRewards);
@@ -280,7 +279,7 @@ contract LPStaking is Ownable {
     }
 
     // Will decrement value of staking NFT when trade occurs
-    function decrementNFTValue (uint _tokenId, uint _amount) external onlyPlatform() {
+    function decrementNFTValue (uint256 _tokenId, uint256 _amount) external onlyPlatform() {
         require(checkIfNFTInCirculation(_tokenId) == true, "Token not in circulation");
         require(getNFTBalance(_tokenId) >= _amount, "Not enough stake in NFT");
 
@@ -289,7 +288,7 @@ contract LPStaking is Ownable {
         NFT storage nft = NFTDetails[_tokenId];
 
         if(nft._LPDeposited > 0) {
-            uint _pendingRewards = nft._LPDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
+            uint256 _pendingRewards = nft._LPDeposited.mul(accNfyPerShare).div(1e18).sub(nft._rewardDebt);
 
             if(_pendingRewards > 0) {
                 NFYToken.transfer(StakingNFT.ownerOf(_tokenId), _pendingRewards);

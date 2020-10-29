@@ -12,11 +12,11 @@ contract RewardPool is Ownable{
 
     IERC20 public NFYToken;
 
-    constructor(IERC20 _NFYToken) public {
+    constructor(IERC20 _NFYToken) Ownable() public {
         NFYToken = _NFYToken;
     }
 
-    function allowTransferToStaking(address _stakingAddress, uint _amount) public onlyOwner() {
+    function allowTransferToStaking(address _stakingAddress, uint256 _amount) public onlyOwner() {
         NFYToken.approve(_stakingAddress, _amount);
     }
 

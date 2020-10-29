@@ -1163,7 +1163,6 @@ contract("NFYStaking", async (accounts) => {
 
             let unstake = await nfyStaking.unstakeAll({from: user2});
 
-            console.log(unstake.logs);
             await truffleAssert.reverts(nfyStaking.unstakeAll({from: user}));
 
         });
@@ -1192,7 +1191,6 @@ contract("NFYStaking", async (accounts) => {
 
             //assert.strictEqual(3, unstake.logs.length);
             console.log(BigInt(unstake.logs[1].args._amount));
-            console.log(unstake.logs);
 
             console.log(BigInt(unstake.logs[3].args._amount));
 

@@ -1062,7 +1062,6 @@ contract("LPStaking", async (accounts) => {
 
             let unstake = await lpStaking.unstakeAll({from: user2});
 
-            console.log(unstake.logs);
             await truffleAssert.reverts(lpStaking.unstakeAll({from: user}));
 
         });
@@ -1092,7 +1091,6 @@ contract("LPStaking", async (accounts) => {
             await truffleAssert.reverts(lpStaking.unstakeAll({from: user}));
 
             console.log(BigInt(unstake.logs[1].args._amount));
-            console.log(unstake.logs);
 
             console.log(BigInt(unstake.logs[3].args._amount));
 
@@ -1308,8 +1306,6 @@ contract("LPStaking", async (accounts) => {
             await truffleAssert.passes(lpStaking.turnEmergencyWithdrawOn({from: owner}));
             await truffleAssert.reverts(lpStaking.turnEmergencyWithdrawOn({from: owner}));
         });
-
-
 
      });
 
