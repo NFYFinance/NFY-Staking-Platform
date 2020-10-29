@@ -53,7 +53,9 @@ contract LPStaking is Ownable {
         StakingNFT = ILPStakingNFT(_StakingNFT);
         staking = _staking;
         rewardPool = _rewardPool;
-        lastRewardBlock = block.number;
+
+        // 10:30 EST October 29th
+        lastRewardBlock = 11152600;
         setDailyReward(_dailyReward);
         accNfyPerShare = 0;
     }
