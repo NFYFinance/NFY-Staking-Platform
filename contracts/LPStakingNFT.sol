@@ -17,7 +17,7 @@ contract LPStakingNFT is Ownable, ERC721 {
     event MintedToken(address _staker, uint256 _tokenId, uint256 _time);
     event RevertCompleted(address _stakeholder, uint256 _tokenId, uint256 _revertNum, uint256 _time);
 
-    constructor() Ownable() ERC721("NFY/ETH LP Staking NFT", "LPNFT") public {}
+    constructor() Ownable() ERC721("NFY/ETH LP Staking NFT", "NFYLPNFT") public {}
 
     // Will mint NFY NFT when a user stakes
     function mint(address _minter) external onlyPlatform() {
