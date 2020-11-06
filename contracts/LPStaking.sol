@@ -53,7 +53,6 @@ contract LPStaking is Ownable {
         StakingNFT = ILPStakingNFT(_StakingNFT);
         staking = _staking;
         rewardPool = _rewardPool;
-
         // 10:30 EST October 29th
         lastRewardBlock = 11152600;
         setDailyReward(_dailyReward);
@@ -70,7 +69,7 @@ contract LPStaking is Ownable {
         dailyReward = _dailyReward;
     }
 
-    // Function that will get balance of a NFY balance of a certain stake
+    // Function that will get balance of a NFY/ETH LP balance of a certain NFT
     function getNFTBalance(uint256 _tokenId) public view returns(uint256 _amountStaked) {
         return NFTDetails[_tokenId]._LPDeposited;
     }
@@ -142,7 +141,7 @@ contract LPStaking is Ownable {
         emit PoolUpdated(blocksToReward, nfyReward, now);
     }
 
-    // Function that lets user stake NFY
+    // Function that lets user stake NFY/ETH LP
     function stakeLP(uint256 _amount) public {
         require(emergencyWithdraw == false, "emergency withdraw is on, cannot stake");
         require(_amount > 0, "Can not stake 0 LP tokens");
@@ -216,7 +215,7 @@ contract LPStaking is Ownable {
         }
     }
 
-    // Function that lets user unstake NFY in system. 5% fee that gets redistributed back to reward pool
+    // Function that lets user unstake NFY/ETH LP in system. This is to only be called in case of emergency and can only be called once
     function unstakeLP(uint256 _tokenId) public {
         require(emergencyWithdraw == true, "Can not withdraw");
         // Require that user is owner of token id
