@@ -55,7 +55,7 @@ contract LPStaking is Ownable {
         rewardPool = _rewardPool;
         lastRewardBlock = block.number;
         setDailyReward(_dailyReward);
-        accNfyPerShare = 0;
+        accNfyPerShare;
     }
 
     // 6500 blocks in average day --- decimals * NFY balance of rewardPool / blocks / 10000 * dailyReward (in hundredths of %) = rewardPerBlock
@@ -183,8 +183,8 @@ contract LPStaking is Ownable {
     function addStakeholderExternal(address _stakeholder) external onlyPlatform() {
         (bool success, bytes memory data) = staking.call(abi.encodeWithSignature("mint(address)", _stakeholder));
         require(success == true, "Mint call failed");
-        NFTDetails[StakingNFT.nftTokenId(_msgSender())]._addressOfMinter = _stakeholder;
-        NFTDetails[StakingNFT.nftTokenId(_msgSender())]._inCirculation = true;
+        NFTDetails[StakingNFT.nftTokenId(_stakeholder)]._addressOfMinter = _stakeholder;
+        NFTDetails[StakingNFT.nftTokenId(_stakeholder)]._inCirculation = true;
     }
 
     // Function that will allow user to claim rewards
