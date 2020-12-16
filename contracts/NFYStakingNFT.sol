@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./Ownable.sol";
 
-contract NFYStakingNFT is Ownable, ERC721 {
+contract NFYStakingNFTV2 is Ownable, ERC721 {
     using SafeMath for uint256;
 
     // Variable that will keep track of next NFT id
@@ -17,7 +17,7 @@ contract NFYStakingNFT is Ownable, ERC721 {
     event MintedToken(address _staker, uint256 _tokenId, uint256 _time);
     event RevertCompleted(address _stakeholder, uint256 _tokenId, uint256 _revertNum, uint256 _time);
 
-    constructor() Ownable() ERC721("NFY Staking NFT", "NFYNFT") public {}
+    constructor() Ownable() ERC721("NFY Staking NFT v2", "NFYNFTv2") public {}
 
     // Will mint NFY NFT when a user stakes
     function mint(address _minter) external onlyPlatform() {

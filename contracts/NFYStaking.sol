@@ -14,7 +14,7 @@ interface INFYStakingNFT {
     function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256);
 }
 
-contract NFYStaking is Ownable {
+contract NFYStakingV2 is Ownable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
     struct NFT {

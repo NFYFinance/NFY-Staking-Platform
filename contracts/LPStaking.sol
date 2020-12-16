@@ -14,7 +14,7 @@ interface ILPStakingNFT {
     function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256);
 }
 
-contract LPStaking is Ownable {
+contract LPStakingV2 is Ownable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
