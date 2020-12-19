@@ -57,7 +57,7 @@ contract NFYStakingV2 is Ownable {
 
     // 6500 blocks in average day --- decimals * NFY balance of rewardPool / blocks / 10000 * dailyReward (in hundredths of %) = rewardPerBlock
     function getRewardPerBlock() public view returns(uint) {
-        return NFYToken.balanceOf(rewardPool).div(6500).div(10000).mul(dailyReward);
+        return NFYToken.balanceOf(rewardPool).mul(dailyReward).div(6500).div(10000);
     }
 
     // % of reward pool to be distributed each day --- in hundredths of % 30 == 0.3%
