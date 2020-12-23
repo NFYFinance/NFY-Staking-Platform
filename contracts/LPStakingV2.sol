@@ -71,7 +71,7 @@ contract LPStakingV2 is Ownable {
         dailyReward = _dailyReward;
     }
 
-    // Function that will get balance of a NFY balance of a certain stake
+    // Function that will get balance of a NFY/ETH LP balance of a certain stake
     function getNFTBalance(uint _tokenId) public view returns(uint _amountStaked) {
         return NFTDetails[_tokenId]._LPDeposited;
     }
@@ -144,7 +144,7 @@ contract LPStakingV2 is Ownable {
         emit PoolUpdated(blocksToReward, nfyReward, now);
     }
 
-    // Function that lets user stake NFY
+    // Function that lets user stake NFY/ETH LP
     function stakeLP(uint _amount) public {
         require(emergencyWithdraw == false, "emergency withdraw is on, cannot stake");
         require(_amount > 0, "Can not stake 0 LP tokens");
