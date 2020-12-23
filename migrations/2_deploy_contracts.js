@@ -5,9 +5,6 @@ const LPStaking = artifacts.require("LPStakingV2");
 
 module.exports = async function (deployer, networks, accounts) {
 
-    let rewardTokensBefore = 60000; // 60,000
-    rewardTokens = web3.utils.toWei(rewardTokensBefore.toString(), 'ether');
-
     // Reward Pool Address
     const rewardPoolAddress = "0x2f822dA8016d5e8ce3c93b53eE1528392Ca3ac57"
 
